@@ -1,0 +1,830 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Evrak Defterim</title>
+<meta name="theme-color" content="#1f5f8b">
+<meta name="description" content="Öğretmen evraklarını telefonda hazırlayan çevrimdışı uygulama">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+:root{
+  --bg:#f3f5f8; --kart:#fff; --yazi:#1d2430; --soluk:#5d6878; --ana:#1f5f8b; --ana2:#174a6d;
+  --cizgi:#d8dee6; --uyari:#b4541a; --iyi:#2c7a4b; --golge:0 1px 3px rgba(0,0,0,.08);
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--yazi);font:16px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+header.ust{position:sticky;top:0;z-index:5;background:var(--ana);color:#fff;display:flex;align-items:center;gap:8px;padding:10px 12px;padding-top:calc(10px + env(safe-area-inset-top))}
+header.ust h1{font-size:18px;margin:0;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+header.ust button{background:transparent;border:0;color:#fff;font-size:22px;padding:4px 8px;line-height:1}
+main{max-width:760px;margin:0 auto;padding:14px 14px 90px}
+.kart{background:var(--kart);border-radius:12px;box-shadow:var(--golge);padding:14px;margin-bottom:12px}
+.kart h2{font-size:17px;margin:0 0 8px}
+.kart p{margin:4px 0;color:var(--soluk);font-size:14px}
+.izgara{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.evrak{display:block;text-align:left;width:100%;border:1px solid var(--cizgi);background:var(--kart);border-radius:12px;padding:14px 12px;font:inherit;color:inherit;box-shadow:var(--golge)}
+.evrak b{display:block;font-size:15px;margin-bottom:2px}
+.evrak span{font-size:13px;color:var(--soluk)}
+.evrak .sim{font-size:26px;display:block;margin-bottom:6px}
+label{display:block;font-size:14px;font-weight:600;margin:12px 0 4px}
+label small{font-weight:400;color:var(--soluk)}
+input,select,textarea{width:100%;font:inherit;font-size:16px;padding:10px;border:1px solid var(--cizgi);border-radius:8px;background:#fff;color:var(--yazi)}
+textarea{min-height:110px;resize:vertical}
+textarea.uzun{min-height:200px}
+.satir{display:flex;gap:10px}.satir>*{flex:1;min-width:0}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;border:0;border-radius:10px;padding:12px 16px;font:inherit;font-weight:600;background:var(--ana);color:#fff;cursor:pointer}
+.btn:active{background:var(--ana2)}
+.btn.ikincil{background:#e4ebf2;color:var(--ana2)}
+.btn.tehlike{background:#f6e3d8;color:var(--uyari)}
+.btn.tam{width:100%}
+.butonlar{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.butonlar .btn{flex:1 1 140px}
+.alt{position:fixed;left:0;right:0;bottom:0;background:#fff;border-top:1px solid var(--cizgi);padding:10px 14px;padding-bottom:calc(10px + env(safe-area-inset-bottom));display:flex;gap:8px;z-index:5}
+.alt .btn{flex:1}
+.ipucu{font-size:13px;color:var(--soluk);margin-top:4px}
+.etiket{display:inline-block;background:#e4ebf2;color:var(--ana2);border-radius:6px;padding:1px 6px;margin:2px 2px 0 0;font-size:12px;font-family:ui-monospace,monospace}
+.bildirim{position:fixed;left:50%;bottom:90px;transform:translateX(-50%);background:#222;color:#fff;padding:10px 16px;border-radius:10px;font-size:14px;z-index:20;max-width:90%;text-align:center;opacity:0;transition:opacity .2s;pointer-events:none}
+.bildirim.acik{opacity:1}
+details summary{cursor:pointer;font-weight:600;color:var(--ana2);margin-top:10px}
+.sayac{font-size:13px;color:var(--iyi);font-weight:600}
+/* Kağıt önizleme */
+.kagit-kap{overflow-x:auto;background:#cfd6de;border-radius:12px;padding:12px}
+.kagit{background:#fff;color:#000;width:100%;max-width:700px;margin:0 auto;padding:28px 26px;font-family:"Times New Roman",Times,serif;font-size:14px;line-height:1.35;box-shadow:0 2px 8px rgba(0,0,0,.2)}
+.kagit .b-baslik{text-align:center;font-weight:bold;margin:0}
+.kagit p{margin:0 0 6px}
+.kagit .b-h{font-weight:bold;margin-top:10px}
+.kagit .b-madde{padding-left:1.4em;text-indent:-1.4em}
+.kagit table{width:100%;border-collapse:collapse;margin:6px 0 10px}
+.kagit table.cerceve td,.kagit table.cerceve th{border:1px solid #000;padding:3px 5px;vertical-align:top}
+.kagit table.cerceve th{font-weight:bold;background:#f0f0f0}
+.kagit table.imza td{text-align:center;vertical-align:top;padding:4px 4px 14px}
+.kagit table.plan td{text-align:center;vertical-align:middle;height:46px;font-size:12px}
+.kagit .bosluk{height:12px}
+/* Oturma planı düzenleyici */
+.plan-duz{display:grid;gap:8px;margin-top:10px}
+.sira{display:flex;gap:4px;border:1px solid var(--cizgi);border-radius:8px;padding:4px;background:#fafbfc}
+.koltuk{flex:1;min-width:0;border:1px solid var(--cizgi);background:#fff;border-radius:6px;padding:6px 2px;font-size:11px;line-height:1.2;min-height:44px;text-align:center;word-break:break-word}
+.koltuk.secili{outline:3px solid var(--uyari)}
+.koltuk.bos{color:#aab}
+.tahta{text-align:center;font-size:12px;font-weight:700;background:#2f4f3f;color:#fff;border-radius:6px;padding:4px}
+@media print{
+  @page{size:A4;margin:15mm}
+  body{background:#fff}
+  header.ust,.alt,.yazdirma-yok,.bildirim{display:none!important}
+  main{padding:0;max-width:none}
+  .kagit-kap{background:none;padding:0;overflow:visible}
+  .kagit{box-shadow:none;padding:0;max-width:none;font-size:12pt}
+  .kagit table.plan td{height:15mm;font-size:10pt}
+  tr{page-break-inside:avoid}
+}
+</style>
+</head>
+<body>
+<header class="ust">
+  <button id="geri" aria-label="Geri" hidden>&#8592;</button>
+  <h1 id="baslik">Evrak Defterim</h1>
+  <button id="yukleBtn" hidden style="font-size:14px;border:1px solid #fff;border-radius:8px">Yükle</button>
+</header>
+<main id="ekran"></main>
+<div class="bildirim" id="bildirim"></div>
+
+<script>
+"use strict";
+/* =========================================================
+   VERİ: her şey bu telefonda, localStorage'da durur.
+   ========================================================= */
+const ANAHTAR = "evrakDefterim.v1";
+const BOS = {
+  okul:{okul:"",il:"",ilce:"",yil:"2026-2027",mudur:"",mudurYrd:"",rehber:"",ogretmen:"",brans:"Matematik",sube:"9/C"},
+  zumre:[], subeOgretmen:[], ogrenciler:[], sablonlar:{}, kayitlar:{}, kurulumTamam:false
+};
+let S;
+try{ S = Object.assign(structuredClone(BOS), JSON.parse(localStorage.getItem(ANAHTAR)||"{}")); }catch(e){ S = structuredClone(BOS); }
+S.okul = Object.assign({}, BOS.okul, S.okul);
+function kaydet(){ try{ localStorage.setItem(ANAHTAR, JSON.stringify(S)); }catch(e){ bildir("Kaydedilemedi: telefon hafızası dolu olabilir."); } }
+
+/* ---------- yardımcılar ---------- */
+const $ = (s,el=document)=>el.querySelector(s);
+const esc = s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const BUYUK = s=>String(s??"").toLocaleUpperCase("tr-TR");
+const bugun = ()=>{const d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");};
+function trTarih(iso){ if(!iso) return "..../..../20...."; const [y,m,d]=iso.split("-"); return `${d}.${m}.${y}`; }
+const GUNLER=["Pazar","Pazartesi","Salı","Çarşamba","Perşembe","Cuma","Cumartesi"];
+function gunAdi(iso){ if(!iso) return ""; const [y,m,d]=iso.split("-").map(Number); return GUNLER[new Date(y,m-1,d).getDay()]; }
+let bildirimZaman;
+function bildir(m){ const b=$("#bildirim"); b.textContent=m; b.classList.add("acik"); clearTimeout(bildirimZaman); bildirimZaman=setTimeout(()=>b.classList.remove("acik"),2600); }
+const satirlar = s=>String(s||"").split(/\r?\n/).map(x=>x.trim()).filter(Boolean);
+const paragraflar = s=>String(s||"").split(/\n\s*\n/).map(x=>x.trim()).filter(Boolean);
+function normAnahtar(k){ return BUYUK(k).replace(/İ/g,"I").replace(/Ş/g,"S").replace(/Ğ/g,"G").replace(/Ü/g,"U").replace(/Ö/g,"O").replace(/Ç/g,"C").replace(/\s+/g,"_"); }
+function dosyaAdi(s){ return String(s).replace(/ı/g,"i").replace(/İ/g,"I").replace(/ş/g,"s").replace(/Ş/g,"S").replace(/ğ/g,"g").replace(/Ğ/g,"G").replace(/ü/g,"u").replace(/Ü/g,"U").replace(/ö/g,"o").replace(/Ö/g,"O").replace(/ç/g,"c").replace(/Ç/g,"C").replace(/[^A-Za-z0-9._-]+/g,"_"); }
+function ogrAd(o){ return o ? o.ad : ""; }
+
+/* ---------- yer tutucular {OKUL} {TARIH} ... ---------- */
+function baglam(v={}){
+  const o=S.okul, og=S.ogrenciler;
+  return {
+    OKUL:o.okul, IL:o.il, ILCE:o.ilce, YIL:o.yil, MUDUR:o.mudur, MUDUR_YRD:o.mudurYrd, REHBER:o.rehber,
+    OGRETMEN:o.ogretmen, BRANS:o.brans, SUBE:o.sube,
+    MEVCUT:og.length, KIZ:og.filter(x=>x.cins==="K").length, ERKEK:og.filter(x=>x.cins==="E").length,
+    TARIH:trTarih(v.tarih), GUN:gunAdi(v.tarih), SAAT:v.saat||"", YER:v.yer||"", DONEM:v.donem||"",
+    TOPLANTI:v.toplanti||"", BASKAN:v.baskan||o.ogretmen, VELI_SAYISI:v.veliSayisi||"....",
+    ZUMRE:(S.zumre.length?S.zumre.join(", "):o.ogretmen)
+  };
+}
+function doldur(metin,b){ return String(metin??"").replace(/\{([^{}]+)\}/g,(m,k)=>{ const n=normAnahtar(k); return (n in b && b[n]!=="" && b[n]!=null) ? b[n] : m; }); }
+const YER_TUTUCULAR=["OKUL","IL","ILCE","YIL","MUDUR","MUDUR_YRD","REHBER","OGRETMEN","BRANS","SUBE","MEVCUT","KIZ","ERKEK","TARIH","GUN","SAAT","YER","DONEM","TOPLANTI","BASKAN","VELI_SAYISI","ZUMRE"];
+
+/* =========================================================
+   BELGE MODELİ: bloklar → hem önizleme (HTML) hem Word (.docx)
+   ========================================================= */
+const B = {
+  baslik:(...s)=>s.filter(Boolean).map(t=>({t:"baslik",text:t})),
+  p:(text,o={})=>({t:"p",text,...o}),
+  h:text=>({t:"h",text}),
+  madde:(no,text)=>({t:"madde",no,text}),
+  tablo:(rows,o={})=>({t:"tablo",rows,...o}),
+  imza:(kisiler,sutun=3)=>({t:"imza",kisiler,sutun}),
+  bosluk:()=>({t:"bosluk"})
+};
+function ustBaslik(b, ad){ return B.baslik(BUYUK(b.YIL+" EĞİTİM-ÖĞRETİM YILI"), BUYUK(b.OKUL||"............ OKULU")+" MÜDÜRLÜĞÜ", BUYUK(ad)); }
+function bilgiTablosu(cift){ return B.tablo(cift.map(([a,c])=>[{text:a,bold:true},c]),{genislik:[30,70]}); }
+function maddeler(liste){ return liste.map((x,i)=>B.madde((i+1)+".",x.replace(/^\d+[.)-]\s*/,""))); }
+function gruplu(kisiler,n){ const r=[]; for(let i=0;i<kisiler.length;i+=n) r.push(kisiler.slice(i,i+n)); return r; }
+function onay(b,tarih){ return B.imza([{ust:"UYGUNDUR", ad:b.MUDUR||"................", unvan:"Okul Müdürü", alt:trTarih(tarih)}],1); }
+
+/* ---------- HTML önizleme ---------- */
+function htmlCiz(bloklar){
+  return bloklar.map(k=>{
+    const tx=s=>esc(s).replace(/\n/g,"<br>");
+    switch(k.t){
+      case "baslik": return `<p class="b-baslik">${tx(k.text)}</p>`;
+      case "p": return `<p style="text-align:${k.hiza||"justify"};${k.bold?"font-weight:bold;":""}${k.girinti?"text-indent:1.25cm;":""}">${tx(k.text)}</p>`;
+      case "h": return `<p class="b-h">${tx(k.text)}</p>`;
+      case "madde": return `<p class="b-madde">${esc(k.no)} ${tx(k.text)}</p>`;
+      case "bosluk": return `<div class="bosluk"></div>`;
+      case "tablo": {
+        const g=k.genislik?`<colgroup>${k.genislik.map(w=>`<col style="width:${w}%">`).join("")}</colgroup>`:"";
+        const sinif=k.plan?"cerceve plan":"cerceve";
+        return `<table class="${sinif}">${g}${k.rows.map((r,i)=>`<tr>${r.map(c=>{const o=typeof c==="object"&&c?c:{text:c}; const tag=(k.baslikSatiri&&i===0)?"th":"td"; return `<${tag}${o.colspan?` colspan="${o.colspan}"`:""} style="${o.bold?"font-weight:bold;":""}${o.hiza?`text-align:${o.hiza};`:""}${o.dolgu?"background:#e8e8e8;":""}">${tx(o.text)}</${tag}>`;}).join("")}</tr>`).join("")}</table>`;
+      }
+      case "imza": return `<table class="imza">${gruplu(k.kisiler,k.sutun).map(r=>`<tr>${r.map(p=>`<td style="width:${100/k.sutun}%">${p.ust?`<b>${esc(p.ust)}</b><br>`:""}${p.alt&&p.ust?esc(p.alt)+"<br>":""}<br>${esc(p.ad||"................")}<br>${esc(p.unvan||"")}</td>`).join("")}</tr>`).join("")}</table>`;
+    }
+    return "";
+  }).join("");
+}
+
+/* ---------- Word (.docx) üretimi: kütüphanesiz ---------- */
+const xe = s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+function run(text,{bold,size}={}){
+  const rpr=(bold||size)?`<w:rPr>${bold?"<w:b/>":""}${size?`<w:sz w:val="${size}"/><w:szCs w:val="${size}"/>`:""}</w:rPr>`:"";
+  return String(text??"").split("\n").map((l,i)=>`${i?`<w:r>${rpr}<w:br/></w:r>`:""}<w:r>${rpr}<w:t xml:space="preserve">${xe(l)}</w:t></w:r>`).join("");
+}
+function para(text,{hiza,bold,size,sonra=80,girinti,asili}={}){
+  const jc=hiza?`<w:jc w:val="${{left:"left",center:"center",right:"right",justify:"both"}[hiza]}"/>`:"";
+  const ind=girinti?`<w:ind w:firstLine="709"/>`:asili?`<w:ind w:left="397" w:hanging="397"/>`:"";
+  return `<w:p><w:pPr><w:spacing w:before="0" w:after="${sonra}"/>${ind}${jc}</w:pPr>${run(text,{bold,size})}</w:p>`;
+}
+const ICERIK_GEN=9638; // A4 - 2x2 cm kenar (twip)
+function docxTablo(rows,{genislik,cerceve=true,baslikSatiri,size,plan}={}){
+  const n=Math.max(...rows.map(r=>r.reduce((a,c)=>a+((c&&c.colspan)||1),0)));
+  const gw=(genislik||Array(n).fill(100/n)).map(p=>Math.round(ICERIK_GEN*p/100));
+  const kenar=cerceve?`<w:tblBorders>${["top","left","bottom","right","insideH","insideV"].map(s=>`<w:${s} w:val="single" w:sz="4" w:space="0" w:color="000000"/>`).join("")}</w:tblBorders>`
+                     :`<w:tblBorders>${["top","left","bottom","right","insideH","insideV"].map(s=>`<w:${s} w:val="nil"/>`).join("")}</w:tblBorders>`;
+  let x=`<w:tbl><w:tblPr><w:tblW w:w="${ICERIK_GEN}" w:type="dxa"/><w:tblLayout w:type="fixed"/>${kenar}<w:tblCellMar><w:left w:w="70" w:type="dxa"/><w:right w:w="70" w:type="dxa"/></w:tblCellMar></w:tblPr><w:tblGrid>${gw.map(w=>`<w:gridCol w:w="${w}"/>`).join("")}</w:tblGrid>`;
+  rows.forEach((r,ri)=>{
+    x+=`<w:tr>${plan?`<w:trPr><w:trHeight w:val="760"/><w:cantSplit/></w:trPr>`:`<w:trPr><w:cantSplit/></w:trPr>`}`;
+    let ci=0;
+    r.forEach(c=>{
+      const o=(typeof c==="object"&&c)?c:{text:c};
+      const span=o.colspan||1; const w=gw.slice(ci,ci+span).reduce((a,b)=>a+b,0); ci+=span;
+      const bold=o.bold||(baslikSatiri&&ri===0);
+      const shd=(o.dolgu||(baslikSatiri&&ri===0&&cerceve))?`<w:shd w:val="clear" w:color="auto" w:fill="E8E8E8"/>`:"";
+      x+=`<w:tc><w:tcPr><w:tcW w:w="${w}" w:type="dxa"/>${span>1?`<w:gridSpan w:val="${span}"/>`:""}${shd}${plan?`<w:vAlign w:val="center"/>`:""}</w:tcPr>${para(o.text,{bold,size,sonra:0,hiza:o.hiza||(plan?"center":undefined)})}</w:tc>`;
+    });
+    x+=`</w:tr>`;
+  });
+  return x+`</w:tbl>`+para("",{sonra:60});
+}
+function docxGovde(bloklar){
+  return bloklar.map(k=>{
+    switch(k.t){
+      case "baslik": return para(k.text,{hiza:"center",bold:true,sonra:0});
+      case "p": return para(k.text,{hiza:k.hiza||"justify",bold:k.bold,girinti:k.girinti});
+      case "h": return para(k.text,{bold:true,sonra:60}).replace("<w:spacing w:before=\"0\"","<w:spacing w:before=\"160\"");
+      case "madde": return para(k.no+" "+k.text,{hiza:"justify",asili:true,sonra:40});
+      case "bosluk": return para("",{sonra:120});
+      case "tablo": return docxTablo(k.rows,{genislik:k.genislik,baslikSatiri:k.baslikSatiri,size:k.plan?20:22,plan:k.plan});
+      case "imza": return docxTablo(gruplu(k.kisiler,k.sutun).flatMap(r=>{ const rr=r.map(p=>({hiza:"center",text:[...(p.ust?[p.ust,p.alt||""]:[]),"",p.ad||"................",p.unvan||""].join("\n")})); while(rr.length<k.sutun) rr.push({text:""}); return [rr,Array(k.sutun).fill({text:" "})]; }),{cerceve:false});
+    }
+    return "";
+  }).join("");
+}
+function docxXml(bloklar,{yatay}={}){
+  const pg=yatay?`<w:pgSz w:w="16838" w:h="11906" w:orient="landscape"/>`:`<w:pgSz w:w="11906" w:h="16838"/>`;
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><w:body>${docxGovde(bloklar)}<w:sectPr>${pg}<w:pgMar w:top="1134" w:right="1134" w:bottom="1134" w:left="1134" w:header="567" w:footer="567" w:gutter="0"/></w:sectPr></w:body></w:document>`;
+}
+const DOCX_SABIT={
+"[Content_Types].xml":`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/><Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/></Types>`,
+"_rels/.rels":`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>`,
+"word/_rels/document.xml.rels":`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`,
+"word/styles.xml":`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:docDefaults><w:rPrDefault><w:rPr><w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman" w:eastAsia="Times New Roman" w:cs="Times New Roman"/><w:sz w:val="24"/><w:szCs w:val="24"/><w:lang w:val="tr-TR"/></w:rPr></w:rPrDefault><w:pPrDefault><w:pPr><w:spacing w:after="80" w:line="264" w:lineRule="auto"/></w:pPr></w:pPrDefault></w:docDefaults><w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:name w:val="Normal"/></w:style></w:styles>`
+};
+/* Basit ZIP yazıcı (sıkıştırmasız) */
+const CRC_T=(()=>{const t=new Uint32Array(256);for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;t[n]=c>>>0;}return t;})();
+function crc32(b){let c=0xFFFFFFFF;for(let i=0;i<b.length;i++)c=CRC_T[(c^b[i])&255]^(c>>>8);return (c^0xFFFFFFFF)>>>0;}
+function zipYap(dosyalar){
+  const enc=new TextEncoder(), parcalar=[], merkez=[]; let ofs=0;
+  for(const [ad,icerik] of Object.entries(dosyalar)){
+    const ab=enc.encode(ad), veri=typeof icerik==="string"?enc.encode(icerik):icerik, crc=crc32(veri);
+    const lh=new DataView(new ArrayBuffer(30));
+    lh.setUint32(0,0x04034b50,true);lh.setUint16(4,20,true);lh.setUint16(6,0x0800,true);lh.setUint16(8,0,true);
+    lh.setUint32(14,crc,true);lh.setUint32(18,veri.length,true);lh.setUint32(22,veri.length,true);lh.setUint16(26,ab.length,true);
+    parcalar.push(new Uint8Array(lh.buffer),ab,veri);
+    const ch=new DataView(new ArrayBuffer(46));
+    ch.setUint32(0,0x02014b50,true);ch.setUint16(4,20,true);ch.setUint16(6,20,true);ch.setUint16(8,0x0800,true);
+    ch.setUint32(16,crc,true);ch.setUint32(20,veri.length,true);ch.setUint32(24,veri.length,true);ch.setUint16(28,ab.length,true);ch.setUint32(42,ofs,true);
+    merkez.push(new Uint8Array(ch.buffer),ab);
+    ofs+=30+ab.length+veri.length;
+  }
+  const mBoy=merkez.reduce((a,b)=>a+b.length,0), son=new DataView(new ArrayBuffer(22)), adet=Object.keys(dosyalar).length;
+  son.setUint32(0,0x06054b50,true);son.setUint16(8,adet,true);son.setUint16(10,adet,true);son.setUint32(12,mBoy,true);son.setUint32(16,ofs,true);
+  return new Blob([...parcalar,...merkez,new Uint8Array(son.buffer)],{type:"application/vnd.openxmlformats-officedocument.wordprocessingml.document"});
+}
+function docxBlob(bloklar,o){ return zipYap({...DOCX_SABIT,"word/document.xml":docxXml(bloklar,o)}); }
+
+/* ---------- ZIP okuyucu (Excel .xlsx içe aktarma için) ---------- */
+async function zipOku(buf){
+  const dv=new DataView(buf); let e=buf.byteLength-22;
+  while(e>=0&&dv.getUint32(e,true)!==0x06054b50) e--;
+  if(e<0) throw new Error("zip değil");
+  const adet=dv.getUint16(e+10,true); let p=dv.getUint32(e+16,true); const dosyalar={}, dec=new TextDecoder();
+  for(let i=0;i<adet;i++){
+    const yontem=dv.getUint16(p+10,true), boy=dv.getUint32(p+20,true), nl=dv.getUint16(p+28,true), el=dv.getUint16(p+30,true), cl=dv.getUint16(p+32,true), lho=dv.getUint32(p+42,true);
+    const ad=dec.decode(new Uint8Array(buf,p+46,nl));
+    const lnl=dv.getUint16(lho+26,true), lel=dv.getUint16(lho+28,true);
+    dosyalar[ad]={yontem,veri:new Uint8Array(buf,lho+30+lnl+lel,boy)};
+    p+=46+nl+el+cl;
+  }
+  return dosyalar;
+}
+async function zipAc(f){
+  if(!f) return null; if(f.yontem===0) return new TextDecoder().decode(f.veri);
+  const s=new Blob([f.veri]).stream().pipeThrough(new DecompressionStream("deflate-raw"));
+  return await new Response(s).text();
+}
+async function xlsxSatirlar(buf){
+  const z=await zipOku(buf), xml=s=>new DOMParser().parseFromString(s,"application/xml");
+  const ortak=[]; const ss=await zipAc(z["xl/sharedStrings.xml"]);
+  if(ss) for(const si of xml(ss).getElementsByTagNameNS("*","si")) ortak.push([...si.getElementsByTagNameNS("*","t")].map(t=>t.textContent).join(""));
+  let sayfa=Object.keys(z).filter(k=>/^xl\/worksheets\/sheet\d*\.xml$/.test(k)).sort()[0];
+  if(!sayfa) throw new Error("sayfa yok");
+  const d=xml(await zipAc(z[sayfa])), sonuc=[];
+  for(const r of d.getElementsByTagNameNS("*","row")){
+    const satir=[];
+    for(const c of r.getElementsByTagNameNS("*","c")){
+      const ref=c.getAttribute("r")||""; const harf=(ref.match(/^[A-Z]+/)||[""])[0];
+      let col=satir.length; if(harf){col=0;for(const ch of harf) col=col*26+ch.charCodeAt(0)-64; col--;}
+      const t=c.getAttribute("t"); const v=c.getElementsByTagNameNS("*","v")[0];
+      let deger="";
+      if(t==="s"&&v) deger=ortak[+v.textContent]??"";
+      else if(t==="inlineStr") deger=[...c.getElementsByTagNameNS("*","t")].map(x=>x.textContent).join("");
+      else if(v) deger=v.textContent;
+      satir[col]=deger;
+    }
+    sonuc.push([...satir].map(x=>x??""));
+  }
+  return sonuc;
+}
+function csvSatirlar(metin){
+  const ilk=metin.split(/\r?\n/).slice(0,5).join("\n");
+  const ayr=[["\t",(ilk.match(/\t/g)||[]).length],[";",(ilk.match(/;/g)||[]).length],[",",(ilk.match(/,/g)||[]).length]].sort((a,b)=>b[1]-a[1])[0];
+  if(!ayr[1]) return metin.split(/\r?\n/).map(l=>[l]);
+  const sonuc=[]; let satir=[], hucre="", tirnak=false;
+  for(let i=0;i<metin.length;i++){
+    const c=metin[i];
+    if(tirnak){ if(c==='"'){ if(metin[i+1]==='"'){hucre+='"';i++;} else tirnak=false; } else hucre+=c; }
+    else if(c==='"') tirnak=true;
+    else if(c===ayr[0]){ satir.push(hucre); hucre=""; }
+    else if(c==="\n"||c==="\r"){ if(c==="\r"&&metin[i+1]==="\n") i++; satir.push(hucre); sonuc.push(satir); satir=[]; hucre=""; }
+    else hucre+=c;
+  }
+  if(hucre||satir.length){ satir.push(hucre); sonuc.push(satir); }
+  return sonuc;
+}
+function cinsiyetOku(s){ s=BUYUK(String(s||"").trim()); if(/^(K|KIZ|KADIN)$/.test(s)) return "K"; if(/^(E|ERKEK)$/.test(s)) return "E"; return ""; }
+/* Tablodan öğrenci listesi çıkar: başlık satırını arar, yoksa tahmin eder */
+function ogrenciCikar(rows){
+  rows=rows.map(r=>r.map(c=>String(c??"").trim())).filter(r=>r.some(Boolean));
+  let bas=-1, cNo=-1, cAd=-1, cSoyad=-1, cCins=-1;
+  for(let i=0;i<Math.min(rows.length,20)&&bas<0;i++){
+    const r=rows[i].map(c=>normAnahtar(c));
+    const ad=r.findIndex(c=>/^(OGRENCI(NIN)?_)?ADI?(_SOYADI?)?$|^AD_?SOYAD|^ADI_SOYADI$|^ISIM/.test(c));
+    if(ad>=0){
+      bas=i; cAd=ad;
+      cNo=r.findIndex(c=>/(^|_)(NO|NUMARA(SI)?|OKUL_NO)$|^NO$|^NUMARA/.test(c));
+      cSoyad=r.findIndex((c,j)=>j!==ad&&/^SOYAD/.test(c));
+      cCins=r.findIndex(c=>/CINSIYET/.test(c));
+    }
+  }
+  const liste=[];
+  if(bas>=0){
+    for(const r of rows.slice(bas+1)){
+      let ad=(r[cAd]||"")+(cSoyad>=0&&r[cSoyad]?" "+r[cSoyad]:"");
+      ad=ad.replace(/\s+/g," ").trim(); if(!ad||/^\d+$/.test(ad)) continue;
+      liste.push({no:cNo>=0?String(r[cNo]||"").replace(/\.0$/,""):"",ad,cins:cCins>=0?cinsiyetOku(r[cCins]):""});
+    }
+  }else{
+    for(const r of rows){
+      if(r.length===1){ const o=satirdanOgrenci(r[0]); if(o) liste.push(o); continue; }
+      let no="",cins="",ad=[];
+      for(const c of r){ if(!c) continue; if(!no&&/^\d+(\.0)?$/.test(c)){no=c.replace(/\.0$/,"");continue;} const k=cinsiyetOku(c); if(k&&!cins){cins=k;continue;} if(/[a-zçğıöşü]/i.test(c)) ad.push(c); }
+      if(ad.length&&no) liste.push({no,ad:ad.join(" ").replace(/\s+/g," "),cins});
+    }
+  }
+  return liste;
+}
+function satirdanOgrenci(l){
+  l=l.trim(); if(!l) return null;
+  const m=l.match(/^(\d+)[\s.)\-:]+(.+?)(?:\s+(K|E|Kız|KIZ|Erkek|ERKEK))?$/);
+  if(m) return {no:m[1],ad:m[2].trim(),cins:cinsiyetOku(m[3])};
+  const m2=l.match(/^(.+?)(?:\s+(K|E|Kız|KIZ|Erkek|ERKEK))?$/);
+  return {no:"",ad:m2[1].trim(),cins:cinsiyetOku(m2[2])};
+}
+const ogrenciMetni = l=>l.map(o=>[o.no,o.ad,o.cins].filter(Boolean).join(" ")).join("\n");
+
+/* =========================================================
+   EVRAK ŞABLONLARI
+   Metin alanlarındaki {OKUL}, {SUBE}, {TARIH} gibi yer tutucular
+   belge oluşurken otomatik doldurulur.
+   ========================================================= */
+const ZUMRE_TURLERI={
+  "Ders yılı başı (Eylül)":{
+    gundem:`Açılış ve yoklama
+Bir önceki ders yılı sonu zümre toplantısında alınan kararların gözden geçirilmesi
+Öğretim programlarının incelenmesi, yıllık planların hazırlanması
+Ölçme ve değerlendirme: ortak sınavlar, sınav sayısı ve tarihleri
+Ders kitapları, araç-gereç ve kaynakların belirlenmesi
+Başarıyı artırmaya yönelik çalışmalar (destekleme ve yetiştirme kursları)
+Diğer zümrelerle iş birliği
+Dilek ve temenniler`,
+    karar:`{YIL} eğitim-öğretim yılında öğretim programlarının yürürlükteki çerçeveye uygun uygulanmasına,
+Yıllık planların zümre öğretmenlerince ortak hazırlanmasına,
+Ortak sınavların zümrece birlikte hazırlanmasına ve sonuçlarının kazanım bazında analiz edilmesine,
+Başarısı düşük öğrenciler için destekleme ve yetiştirme kurslarının planlanmasına,
+Bir sonraki zümre toplantısında alınan kararların uygulanma durumunun değerlendirilmesine`
+  },
+  "Kasım ara değerlendirme":{
+    gundem:`Açılış ve yoklama
+Ders yılı başı zümre kararlarının uygulanma durumu
+Yıllık planların uygulanma durumu
+Yapılan sınavların sonuçlarının kazanım bazında değerlendirilmesi
+Başarıyı artırmak için alınacak önlemler
+Dilek ve temenniler`,
+    karar:`Planlardaki aksayan konuların telafisine yönelik ek çalışmalar yapılmasına,
+Sınav sonuçlarında başarı oranı düşük kazanımların tekrar edilmesine,
+Öğrencilere düzenli ödev ve tekrar çalışmaları verilmesine,
+Destekleme ve yetiştirme kurslarına katılımın teşvik edilmesine`
+  },
+  "İkinci dönem başı (Şubat)":{
+    gundem:`Açılış ve yoklama
+Birinci dönemin değerlendirilmesi
+Birinci dönem sınav sonuçları ve başarı durumu
+İkinci dönem planlaması ve ortak sınav tarihleri
+Başarıyı artırmaya yönelik önlemler
+Dilek ve temenniler`,
+    karar:`Birinci dönemde başarı oranı düşük kazanımların ikinci dönem başında tekrar edilmesine,
+İkinci dönem ortak sınavlarının zümrece birlikte hazırlanmasına,
+Başarısı düşük öğrencilerin velileriyle iş birliği yapılmasına`
+  },
+  "Nisan ara değerlendirme":{
+    gundem:`Açılış ve yoklama
+İkinci dönem başı zümre kararlarının uygulanma durumu
+Yıllık planların uygulanma durumu
+Yapılan sınavların sonuçlarının değerlendirilmesi
+Yıl sonuna kadar alınacak önlemler
+Dilek ve temenniler`,
+    karar:`Yıl sonuna kadar kalan konuların planlandığı şekilde tamamlanmasına,
+Başarı oranı düşük kazanımlarda tekrar ve pekiştirme yapılmasına`
+  },
+  "Ders yılı sonu (Haziran)":{
+    gundem:`Açılış ve yoklama
+Ders yılı içinde alınan zümre kararlarının değerlendirilmesi
+Öğretim programlarının uygulanması ve yıl sonu başarı durumu
+Gelecek ders yılı için öneriler (plan, kitap, araç-gereç)
+Dilek ve temenniler`,
+    karar:`Ders yılı içinde alınan kararların büyük ölçüde uygulandığının tespitine,
+Gelecek ders yılında başarıyı artırmak için belirlenen önerilerin ders yılı başı zümre toplantısında ele alınmasına`
+  }
+};
+function gorusmeOtomatik(gundem){
+  return satirlar(gundem).map((g,i)=>`${i+1}. maddede ${g.replace(/^\d+[.)-]\s*/,"").toLocaleLowerCase("tr-TR")} konusu görüşüldü. `+(i===0?`Toplantı {BASKAN} tarafından açıldı, yoklama yapıldı ve tüm üyelerin hazır olduğu görüldü.`:`Üyeler görüşlerini paylaştı.`)).join("\n\n");
+}
+
+const EVRAKLAR = {
+  sok:{
+    ad:"ŞÖK Tutanağı", sim:"🏫", acik:"Şube Öğretmenler Kurulu",
+    alanlar:[
+      {id:"donem",ad:"Dönem",tur:"secim",secenek:["1. Dönem","2. Dönem"],v:()=>new Date().getMonth()>=1&&new Date().getMonth()<=6?"2. Dönem":"1. Dönem"},
+      {id:"tarih",ad:"Tarih",tur:"date",v:bugun},
+      {id:"saat",ad:"Saat",tur:"time",v:()=>"15:30"},
+      {id:"yer",ad:"Yer",tur:"text",v:()=>"Öğretmenler Odası"},
+      {id:"gundem",ad:"Gündem maddeleri",ipucu:"Her satır bir madde",tur:"metin",v:()=>`Açılış ve yoklama
+{SUBE} şubesinin genel durumunun değerlendirilmesi
+Öğrencilerin ders başarı durumlarının değerlendirilmesi
+Devam-devamsızlık durumu
+Başarısı düşük ve özel ilgi gerektiren öğrencilerin belirlenmesi
+Öğretmenler arasında ortak tutum ve davranış birliği
+Öğrencilerin sosyal etkinliklere katılımı
+Dilek ve temenniler`},
+      {id:"gorusme",ad:"Görüşmeler",ipucu:"Paragrafları boş satırla ayırın",tur:"metin",uzun:true,v:()=>`1. Toplantı sınıf rehber öğretmeni {OGRETMEN} tarafından açıldı. Yoklama yapıldı, kurul üyelerinin hazır olduğu görüldü.
+
+2. {SUBE} şubesinde {MEVCUT} öğrenci ({KIZ} kız, {ERKEK} erkek) bulunduğu belirtildi. Sınıfın genel olarak uyumlu olduğu, derslere katılımın orta düzeyde olduğu ifade edildi.
+
+3. Ders öğretmenleri kendi derslerindeki başarı durumlarını değerlendirdi. Matematik dersinde temel kavramlarda eksikleri olan öğrenciler bulunduğu belirtildi.
+
+4. Devamsızlık yapan öğrencilerin velileriyle görüşüldüğü ve takibin sürdüğü bildirildi.
+
+5. Başarısı düşük öğrencilerin listesi çıkarıldı. Bu öğrencilerin rehberlik servisine bildirilmesi ve velileriyle görüşülmesi önerildi.
+
+6. Sınıf kurallarının tüm öğretmenlerce aynı şekilde uygulanması gerektiği vurgulandı.
+
+7. Öğrencilerin sosyal etkinliklere ve kulüp çalışmalarına katılımının teşvik edilmesi önerildi.
+
+8. Dilek ve temenniler bölümünde söz alan olmadı ve toplantı sona erdi.`},
+      {id:"karar",ad:"Alınan kararlar",ipucu:"Her satır bir karar",tur:"metin",v:()=>`Başarısı düşük öğrencilerin rehberlik servisine bildirilmesine ve velilerinin okula davet edilmesine,
+Devamsızlık takibinin sınıf rehber öğretmeni tarafından düzenli yapılmasına,
+Sınıf kurallarının tüm öğretmenlerce ortak uygulanmasına,
+Öğrencilerin destekleme ve yetiştirme kurslarına yönlendirilmesine,
+Başarılı öğrencilerin onurlandırılarak teşvik edilmesine`},
+    ],
+    belge(v,b){
+      const birlesik={}; for(const o of S.subeOgretmen){ const k=BUYUK(o.ad); if(birlesik[k]) birlesik[k].ders+=" / "+o.ders; else birlesik[k]={...o}; }
+      const ogretmenler=S.subeOgretmen.length?Object.values(birlesik):[{ders:b.BRANS,ad:b.OGRETMEN}];
+      return [
+        ...ustBaslik(b,`${b.SUBE} şubesi ${v.donem} şube öğretmenler kurulu toplantı tutanağı`), B.bosluk(),
+        bilgiTablosu([["Toplantı Tarihi",`${b.TARIH} ${b.GUN}`],["Saat",b.SAAT],["Yer",b.YER],["Şube",b.SUBE],["Sınıf Rehber Öğretmeni",b.OGRETMEN]]),
+        B.h("GÜNDEM MADDELERİ"), ...maddeler(satirlar(doldur(v.gundem,b))),
+        B.h("GÜNDEM MADDELERİNİN GÖRÜŞÜLMESİ"), ...paragraflar(doldur(v.gorusme,b)).map(t=>B.p(t,{girinti:true})),
+        B.h("ALINAN KARARLAR"), ...maddeler(satirlar(doldur(v.karar,b))), B.bosluk(),
+        B.h("KURUL ÜYELERİ"),
+        B.imza([{ad:b.OGRETMEN,unvan:"Sınıf Rehber Öğretmeni"},...ogretmenler.filter(o=>BUYUK(o.ad)!==BUYUK(b.OGRETMEN)).map(o=>({ad:o.ad,unvan:`${o.ders} Öğretmeni`})),...(b.REHBER?[{ad:b.REHBER,unvan:"Rehber Öğretmen"}]:[])]),
+        onay(b,v.tarih)
+      ];
+    }
+  },
+  zumre:{
+    ad:"Zümre Tutanağı", sim:"📐", acik:"Zümre öğretmenler kurulu",
+    alanlar:[
+      {id:"toplanti",ad:"Toplantı",tur:"secim",secenek:Object.keys(ZUMRE_TURLERI),v:()=>{const m=new Date().getMonth();return Object.keys(ZUMRE_TURLERI)[m===8||m===7?0:m===10||m===11||m===0?1:m===1||m===2?2:m===3||m===4?3:4];}},
+      {id:"tarih",ad:"Tarih",tur:"date",v:bugun},
+      {id:"saat",ad:"Saat",tur:"time",v:()=>"15:30"},
+      {id:"yer",ad:"Yer",tur:"text",v:()=>"Öğretmenler Odası"},
+      {id:"baskan",ad:"Zümre başkanı",tur:"secim",secenek:()=>S.zumre.length?S.zumre:[S.okul.ogretmen],v:()=>S.zumre[0]||S.okul.ogretmen},
+      {id:"gundem",ad:"Gündem maddeleri",ipucu:"Her satır bir madde. Toplantı türünü değiştirince kendiliğinden yenilenir.",tur:"metin",v:x=>ZUMRE_TURLERI[x.toplanti]?.gundem||""},
+      {id:"gorusme",ad:"Görüşmeler",ipucu:"Paragrafları boş satırla ayırın",tur:"metin",uzun:true,v:x=>gorusmeOtomatik(x.gundem)},
+      {id:"karar",ad:"Alınan kararlar",ipucu:"Her satır bir karar",tur:"metin",v:x=>ZUMRE_TURLERI[x.toplanti]?.karar||""},
+    ],
+    belge(v,b){
+      const uyeler=S.zumre.length?S.zumre:[b.OGRETMEN];
+      return [
+        ...ustBaslik(b,`${b.BRANS} dersi zümre öğretmenler toplantı tutanağı`), B.bosluk(),
+        bilgiTablosu([["Toplantı",v.toplanti],["Tarih",`${b.TARIH} ${b.GUN}`],["Saat",b.SAAT],["Yer",b.YER],["Zümre Başkanı",b.BASKAN],["Katılanlar",uyeler.join(", ")]]),
+        B.h("GÜNDEM MADDELERİ"), ...maddeler(satirlar(doldur(v.gundem,b))),
+        B.h("GÜNDEM MADDELERİNİN GÖRÜŞÜLMESİ"), ...paragraflar(doldur(v.gorusme,b)).map(t=>B.p(t,{girinti:true})),
+        B.h("ALINAN KARARLAR"), ...maddeler(satirlar(doldur(v.karar,b))), B.bosluk(),
+        B.imza(uyeler.map(a=>({ad:a,unvan:a===b.BASKAN?`${b.BRANS} Öğretmeni\nZümre Başkanı`:`${b.BRANS} Öğretmeni`}))),
+        onay(b,v.tarih)
+      ];
+    }
+  },
+  veli:{
+    ad:"Veli Toplantısı", sim:"👪", acik:"Veli toplantısı tutanağı",
+    alanlar:[
+      {id:"donem",ad:"Dönem",tur:"secim",secenek:["1. Dönem","2. Dönem"],v:()=>new Date().getMonth()>=1&&new Date().getMonth()<=6?"2. Dönem":"1. Dönem"},
+      {id:"tarih",ad:"Tarih",tur:"date",v:bugun},
+      {id:"saat",ad:"Saat",tur:"time",v:()=>"14:00"},
+      {id:"yer",ad:"Yer",tur:"text",v:()=>`${S.okul.sube} Sınıfı`},
+      {id:"veliSayisi",ad:"Katılan veli sayısı",tur:"number",v:()=>""},
+      {id:"gundem",ad:"Gündem maddeleri",tur:"metin",ipucu:"Her satır bir madde",v:()=>`Açılış ve tanışma
+Okulun ve sınıfın genel durumu hakkında bilgilendirme
+Öğrencilerin ders başarıları ve sınav sistemi
+Devam-devamsızlık ve disiplin kuralları
+Evde ders çalışma ortamı ve veli-okul iş birliği
+Veli görüş ve önerileri
+Sınıf veli temsilcisinin seçilmesi
+Dilek ve temenniler`},
+      {id:"gorusme",ad:"Görüşmeler",tur:"metin",uzun:true,ipucu:"Paragrafları boş satırla ayırın",v:()=>`1. Toplantı sınıf rehber öğretmeni {OGRETMEN} tarafından açıldı. Toplantıya {VELI_SAYISI} veli katıldı.
+
+2. Velilere okulun ve {SUBE} sınıfının genel durumu hakkında bilgi verildi. Sınıf mevcudunun {MEVCUT} olduğu belirtildi.
+
+3. Ders başarısının takibi, sınav tarihleri ve e-Okul Veli Bilgilendirme Sistemi hakkında bilgi verildi.
+
+4. Devamsızlık sınırları ve okul kuralları hatırlatıldı.
+
+5. Evde düzenli çalışma ortamı sağlanması, telefon ve ekran süresinin sınırlandırılması konusunda öneriler sunuldu.
+
+6. Velilerin görüş ve önerileri alındı.
+
+7. Sınıf veli temsilcisi seçildi.
+
+8. Dilek ve temenniler alındıktan sonra toplantı sona erdi.`},
+      {id:"karar",ad:"Alınan kararlar",tur:"metin",ipucu:"Her satır bir karar",v:()=>`Velilerin e-Okul üzerinden devamsızlık ve not durumlarını düzenli takip etmesine,
+Öğrenci ile ilgili önemli durumların sınıf rehber öğretmenine zamanında bildirilmesine,
+Başarısı düşük öğrencilerin velileriyle bireysel görüşmeler yapılmasına`},
+      {id:"liste",ad:"Veli imza listesi eklensin mi?",tur:"secim",secenek:["Evet","Hayır"],v:()=>"Evet"},
+    ],
+    belge(v,b){
+      const blok=[
+        ...ustBaslik(b,`${b.SUBE} sınıfı ${v.donem} veli toplantısı tutanağı`), B.bosluk(),
+        bilgiTablosu([["Tarih",`${b.TARIH} ${b.GUN}`],["Saat",b.SAAT],["Yer",b.YER],["Sınıf Mevcudu",String(b.MEVCUT)],["Katılan Veli Sayısı",v.veliSayisi||"...."]]),
+        B.h("GÜNDEM MADDELERİ"), ...maddeler(satirlar(doldur(v.gundem,b))),
+        B.h("GÜNDEM MADDELERİNİN GÖRÜŞÜLMESİ"), ...paragraflar(doldur(v.gorusme,b)).map(t=>B.p(t,{girinti:true})),
+        B.h("ALINAN KARARLAR"), ...maddeler(satirlar(doldur(v.karar,b))), B.bosluk(),
+        B.imza([{ad:b.OGRETMEN,unvan:`${b.SUBE} Sınıf Rehber Öğretmeni`},{ad:"................",unvan:"Veli Temsilcisi"}],2),
+        onay(b,v.tarih)
+      ];
+      if(v.liste==="Evet"&&S.ogrenciler.length){
+        blok.push(B.bosluk(),B.h("VELİ KATILIM LİSTESİ"),B.tablo([["S.No","Öğr. No","Öğrencinin Adı Soyadı","Velinin Adı Soyadı","İmza"],...S.ogrenciler.map((o,i)=>[String(i+1),o.no,o.ad,"",""])],{baslikSatiri:true,genislik:[8,11,33,30,18]}));
+      }
+      return blok;
+    }
+  },
+  rehberlik:{
+    ad:"Rehberlik Raporu", sim:"🧭", acik:"Sınıf rehberlik faaliyet raporu",
+    alanlar:[
+      {id:"donem",ad:"Rapor dönemi",tur:"secim",secenek:["1. Dönem Sonu","Ders Yılı Sonu"],v:()=>{const m=new Date().getMonth();return m>=3&&m<=7?"Ders Yılı Sonu":"1. Dönem Sonu";}},
+      {id:"tarih",ad:"Rapor tarihi",tur:"date",v:bugun},
+      {id:"etkinlik",ad:"Yapılan etkinlikler",ipucu:"Her satır: Tarih | Etkinlik / kazanım | Açıklama",tur:"metin",uzun:true,v:()=>`Eylül | Okula ve sınıfa uyum, tanışma etkinliği | Tüm sınıf katıldı
+Ekim | Öğrenci bilgi formlarının doldurulması | Formlar rehberlik servisine teslim edildi
+Ekim | Ders çalışma yöntemleri ve zaman yönetimi | Tüm sınıf katıldı
+Kasım | Akran zorbalığı ve iletişim becerileri | Tüm sınıf katıldı
+Aralık | Sınav kaygısıyla başa çıkma | Tüm sınıf katıldı`},
+      {id:"bireysel",ad:"Öğrenci ile bireysel görüşme sayısı",tur:"number",v:()=>""},
+      {id:"veliGor",ad:"Veli görüşmesi sayısı",tur:"number",v:()=>""},
+      {id:"yonlendir",ad:"Rehberlik servisine yönlendirilen öğrenci sayısı",tur:"number",v:()=>""},
+      {id:"devamsiz",ad:"Devamsızlık sorunu olan öğrenci sayısı",tur:"number",v:()=>""},
+      {id:"degerlendirme",ad:"Genel değerlendirme",tur:"metin",v:()=>`{SUBE} sınıfında {DONEM} itibarıyla sınıf rehberlik programında yer alan etkinlikler büyük ölçüde uygulanmıştır. Öğrencilerin etkinliklere katılımı genel olarak iyi düzeydedir. Sınıf içi iletişim ve uyum olumludur.`},
+      {id:"sorun",ad:"Karşılaşılan sorunlar ve öneriler",tur:"metin",v:()=>`Bazı öğrencilerde ders çalışma alışkanlığının yetersiz olduğu gözlenmiştir. Bu öğrencilerle bireysel görüşmelerin sürdürülmesi ve velilerle iş birliğinin artırılması önerilmektedir.`},
+    ],
+    belge(v,b){
+      const etk=satirlar(doldur(v.etkinlik,b)).map((l,i)=>{const p=l.split("|").map(x=>x.trim()); return [String(i+1),p[0]||"",p[1]||"",p[2]||""];});
+      return [
+        ...ustBaslik(b,`${b.SUBE} sınıfı ${v.donem} sınıf rehberlik faaliyet raporu`), B.bosluk(),
+        bilgiTablosu([["Sınıf / Şube",b.SUBE],["Sınıf Rehber Öğretmeni",b.OGRETMEN],["Mevcut",`${b.MEVCUT} (Kız: ${b.KIZ}, Erkek: ${b.ERKEK})`],["Rapor Tarihi",b.TARIH]]),
+        B.h("1. YAPILAN REHBERLİK ETKİNLİKLERİ"),
+        B.tablo([["S.No","Tarih","Etkinlik / Kazanım","Açıklama"],...(etk.length?etk:[["1","","",""]])],{baslikSatiri:true,genislik:[8,16,46,30]}),
+        B.h("2. SAYISAL BİLGİLER"),
+        B.tablo([["Öğrenci ile bireysel görüşme sayısı",v.bireysel||"...."],["Veli görüşmesi sayısı",v.veliGor||"...."],["Rehberlik servisine yönlendirilen öğrenci sayısı",v.yonlendir||"...."],["Devamsızlık sorunu olan öğrenci sayısı",v.devamsiz||"...."]],{genislik:[75,25]}),
+        B.h("3. GENEL DEĞERLENDİRME"), ...paragraflar(doldur(v.degerlendirme,b)).map(t=>B.p(t,{girinti:true})),
+        B.h("4. KARŞILAŞILAN SORUNLAR VE ÖNERİLER"), ...paragraflar(doldur(v.sorun,b)).map(t=>B.p(t,{girinti:true})),
+        B.bosluk(),
+        B.imza([{ad:b.OGRETMEN,unvan:"Sınıf Rehber Öğretmeni"},{ad:b.REHBER||"................",unvan:"Rehber Öğretmen"}],2),
+        onay(b,v.tarih)
+      ];
+    }
+  },
+  oturma:{
+    ad:"Oturma Planı", sim:"🪑", acik:"Sınıf oturma planı",
+    alanlar:[
+      {id:"tarih",ad:"Tarih",tur:"date",v:bugun},
+      {id:"sira",ad:"Sıra sayısı (önden arkaya)",tur:"number",v:()=>String(Math.max(1,Math.ceil(Math.max(S.ogrenciler.length,1)/6)))},
+      {id:"sutun",ad:"Sıra sütunu (yan yana)",tur:"number",v:()=>"3"},
+      {id:"kisi",ad:"Bir sırada kaç kişi",tur:"secim",secenek:["1","2","3"],v:()=>"2"},
+      {id:"duzen",ad:"Yerleştirme",tur:"secim",secenek:["Numaraya göre","Alfabetik","Rastgele","Kız-erkek karışık"],v:()=>"Numaraya göre"},
+      {id:"plan",tur:"plan"}
+    ],
+    belge(v,b){
+      const sira=+v.sira||1, sutun=+v.sutun||1, kisi=+v.kisi||2, plan=v.planDizi||[];
+      const harita=Object.fromEntries(S.ogrenciler.map(o=>[o.no+"|"+o.ad,o]));
+      const rows=[[{text:"YAZI TAHTASI / ÖĞRETMEN MASASI",colspan:sutun,hiza:"center",bold:true,dolgu:true}]];
+      for(let r=0;r<sira;r++){
+        const satir=[];
+        for(let c=0;c<sutun;c++){
+          const adlar=[]; for(let k=0;k<kisi;k++){ const o=harita[plan[(r*sutun+c)*kisi+k]]; adlar.push(o?`${o.no?o.no+" ":""}${o.ad}`:"—"); }
+          satir.push({text:adlar.join("\n")});
+        }
+        rows.push(satir);
+      }
+      return [...ustBaslik(b,`${b.SUBE} sınıfı oturma planı`),B.p(`Tarih: ${b.TARIH}`,{hiza:"right"}),B.tablo(rows,{plan:true}),B.bosluk(),B.imza([{ad:b.OGRETMEN,unvan:`${b.SUBE} Sınıf Rehber Öğretmeni`}],1)];
+    }
+  }
+};
+
+/* =========================================================
+   EKRANLAR
+   ========================================================= */
+let geriFn=null;
+function ekran(baslik,html,{geri}={}){
+  $("#baslik").textContent=baslik; $("#ekran").innerHTML=html; window.scrollTo(0,0);
+  geriFn=geri||null; $("#geri").hidden=!geri;
+}
+$("#geri").onclick=()=>geriFn&&geriFn();
+
+function anaSayfa(){
+  if(!S.kurulumTamam) return kurulum(true);
+  const o=S.okul;
+  ekran("Evrak Defterim",`
+    <div class="kart"><h2>${esc(o.okul||"Okulunuz")}</h2><p>${esc(o.ogretmen)} · ${esc(o.brans)} · ${esc(o.sube)} rehber öğretmeni · ${S.ogrenciler.length} öğrenci · ${esc(o.yil)}</p></div>
+    <div class="izgara">${Object.entries(EVRAKLAR).map(([id,e])=>`<button class="evrak" data-ev="${id}"><span class="sim">${e.sim}</span><b>${e.ad}</b><span>${e.acik}</span></button>`).join("")}</div>
+    <div class="butonlar"><button class="btn ikincil" id="ayar">⚙️ Bilgilerim</button><button class="btn ikincil" id="yedek">💾 Yedek</button></div>
+    <p class="ipucu" style="text-align:center;margin-top:16px">Tüm bilgiler yalnızca bu telefonda saklanır.</p>`);
+  document.querySelectorAll("[data-ev]").forEach(b=>b.onclick=()=>evrakForm(b.dataset.ev));
+  $("#ayar").onclick=()=>kurulum(false); $("#yedek").onclick=yedekEkrani;
+}
+
+function kurulum(ilk){
+  const o=S.okul, alan=(id,ad,ph="")=>`<label>${ad}</label><input id="k_${id}" value="${esc(o[id])}" placeholder="${esc(ph)}">`;
+  ekran(ilk?"Hoş geldiniz":"Bilgilerim",`
+    ${ilk?`<div class="kart"><h2>Bir kez doldurun</h2><p>Bu bilgiler tüm evraklara otomatik yazılır. Sonra istediğiniz zaman değiştirebilirsiniz.</p></div>`:""}
+    <div class="kart"><h2>Okul</h2>
+      ${alan("okul","Okul adı","Örn. Atatürk Anadolu Lisesi")}
+      <div class="satir"><div>${alan("il","İl")}</div><div>${alan("ilce","İlçe")}</div></div>
+      ${alan("yil","Eğitim-öğretim yılı")}
+      ${alan("mudur","Okul müdürü")}
+      ${alan("mudurYrd","Müdür yardımcısı")}
+      ${alan("rehber","Okul rehber öğretmeni (psikolojik danışman)")}
+    </div>
+    <div class="kart"><h2>Siz</h2>
+      ${alan("ogretmen","Adınız soyadınız")}
+      <div class="satir"><div>${alan("brans","Branş")}</div><div>${alan("sube","Rehberi olduğunuz şube")}</div></div>
+    </div>
+    <div class="kart"><h2>Zümre öğretmenleri</h2>
+      <label>Her satıra bir öğretmen <small>(kendiniz dahil; ilk yazılan zümre başkanı)</small></label>
+      <textarea id="k_zumre" placeholder="Ayşe Yılmaz&#10;Mehmet Demir">${esc(S.zumre.join("\n"))}</textarea>
+    </div>
+    <div class="kart"><h2>Şubede ders veren öğretmenler</h2>
+      <label>Her satır: Ders: Ad Soyad <small>(ŞÖK tutanağı için)</small></label>
+      <textarea id="k_subeOg" placeholder="Türk Dili ve Edebiyatı: Ali Kaya&#10;Fizik: Zeynep Ak">${esc(S.subeOgretmen.map(x=>`${x.ders}: ${x.ad}`).join("\n"))}</textarea>
+    </div>
+    <div class="kart"><h2>Öğrenci listesi <span class="sayac" id="sayac"></span></h2>
+      <p>Excel (.xlsx) veya CSV dosyası seçin, ya da listeyi aşağıya yapıştırın. Her satır: <b>No Ad Soyad K/E</b></p>
+      <div class="butonlar"><label class="btn ikincil" style="margin:0">📄 Excel / CSV seç<input type="file" id="dosya" accept=".xlsx,.csv,.txt,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" hidden></label></div>
+      <textarea id="k_ogr" class="uzun" placeholder="101 Ali Yılmaz E&#10;102 Ayşe Kaya K">${esc(ogrenciMetni(S.ogrenciler))}</textarea>
+      <p class="ipucu">e-Okul'dan indirdiğiniz dosya .xls ise: Google E-Tablolar veya Excel uygulamasında açıp .xlsx olarak kaydedin, ya da isimleri kopyalayıp buraya yapıştırın.</p>
+    </div>
+    <div style="height:10px"></div>
+    <div class="alt"><button class="btn tam" id="kaydetBtn">${ilk?"Kaydet ve başla":"Kaydet"}</button></div>
+  `,{geri:ilk?null:anaSayfa});
+  const say=()=>{ $("#sayac").textContent=satirlar($("#k_ogr").value).length+" öğrenci"; };
+  say(); $("#k_ogr").oninput=say;
+  $("#dosya").onchange=async e=>{
+    const f=e.target.files[0]; if(!f) return;
+    try{
+      const buf=await f.arrayBuffer(); let rows;
+      if(/\.xls$/i.test(f.name)) { bildir("Eski .xls biçimi okunamıyor. Lütfen .xlsx veya CSV olarak kaydedin."); return; }
+      if(/\.xlsx$/i.test(f.name)||new Uint8Array(buf,0,2).join()==="80,75") rows=await xlsxSatirlar(buf);
+      else { let t; try{ t=new TextDecoder("utf-8",{fatal:true}).decode(buf);}catch(_){ t=new TextDecoder("windows-1254").decode(buf);} rows=csvSatirlar(t.replace(/^﻿/,"")); }
+      const liste=ogrenciCikar(rows);
+      if(!liste.length){ bildir("Dosyada öğrenci bulunamadı. Listeyi kopyalayıp yapıştırmayı deneyin."); return; }
+      $("#k_ogr").value=ogrenciMetni(liste); say(); bildir(liste.length+" öğrenci aktarıldı. Kontrol edip Kaydet'e basın.");
+    }catch(err){ console.error(err); bildir("Dosya okunamadı: "+err.message); }
+    e.target.value="";
+  };
+  $("#kaydetBtn").onclick=()=>{
+    for(const k of Object.keys(BOS.okul)) S.okul[k]=$("#k_"+k).value.trim();
+    S.zumre=satirlar($("#k_zumre").value);
+    S.subeOgretmen=satirlar($("#k_subeOg").value).map(l=>{const i=l.indexOf(":"); return i>0?{ders:l.slice(0,i).trim(),ad:l.slice(i+1).trim()}:{ders:"",ad:l};});
+    const ham=satirlar($("#k_ogr").value), liste=ham.length&&ham.some(l=>/[\t;]/.test(l))?ogrenciCikar(csvSatirlar(ham.join("\n"))):ham.map(satirdanOgrenci).filter(Boolean);
+    S.ogrenciler=liste;
+    if(!S.okul.ogretmen){ bildir("Lütfen adınızı yazın."); return; }
+    S.kurulumTamam=true; kaydet(); bildir("Kaydedildi"); anaSayfa();
+  };
+}
+
+/* ---------- evrak formu ---------- */
+function alanSecenek(a){ return typeof a.secenek==="function"?a.secenek():a.secenek; }
+function evrakForm(id){
+  const ev=EVRAKLAR[id];
+  const kayit=S.kayitlar[id]||{degerler:{},degisen:[]};
+  const v=Object.assign({},kayit.degerler), degisen=new Set(kayit.degisen||[]);
+  const sablon=S.sablonlar[id]||{};
+  const anahtar=a=>id==="zumre"?a.id+"|"+v.toplanti:a.id;
+  const varsayilan=a=>(a.tur==="metin"&&sablon[anahtar(a)]!=null)?sablon[anahtar(a)]:(a.v?a.v(v):"");
+  function yenile(){ for(const a of ev.alanlar){ if(a.tur==="plan") continue; if(!degisen.has(a.id)||v[a.id]==null) v[a.id]=varsayilan(a); } }
+  yenile();
+  const alanHtml=a=>{
+    if(a.tur==="plan") return `<div class="kart" id="planKart"></div>`;
+    const ip=a.ipucu?`<div class="ipucu">${a.ipucu}</div>`:"";
+    let g;
+    if(a.tur==="secim") g=`<select data-a="${a.id}">${alanSecenek(a).map(s=>`<option ${s===v[a.id]?"selected":""}>${esc(s)}</option>`).join("")}</select>`;
+    else if(a.tur==="metin") g=`<textarea data-a="${a.id}" class="${a.uzun?"uzun":""}">${esc(v[a.id])}</textarea>${ip}<div class="ipucu"><button class="btn ikincil" style="padding:6px 10px;font-size:13px;margin-top:4px" data-sablon="${a.id}">Bu metni şablonum yap</button> <button class="btn ikincil" style="padding:6px 10px;font-size:13px;margin-top:4px" data-sifirla="${a.id}">Varsayılana dön</button></div>`;
+    else g=`<input data-a="${a.id}" type="${a.tur==="number"?"number":a.tur}" inputmode="${a.tur==="number"?"numeric":"text"}" value="${esc(v[a.id])}">${ip}`;
+    return `<label>${a.ad}</label>${g}`;
+  };
+  ekran(ev.ad,`
+    <div class="kart">${ev.alanlar.filter(a=>a.tur!=="plan").map(alanHtml).join("")}
+      <details><summary>Kullanılabilir yer tutucular</summary><div class="ipucu">Metinlere yazdığınız bu etiketler belgede otomatik doldurulur:<br>${YER_TUTUCULAR.map(k=>`<span class="etiket">{${k}}</span>`).join("")}</div></details>
+    </div>
+    ${ev.alanlar.some(a=>a.tur==="plan")?`<div class="kart" id="planKart"></div>`:""}
+    <div style="height:10px"></div>
+    <div class="alt"><button class="btn ikincil" id="sifirlaHepsi">Sıfırla</button><button class="btn" id="onizle">Önizle ve indir</button></div>
+  `,{geri:()=>{sakla();anaSayfa();}});
+  function sakla(){ S.kayitlar[id]={degerler:v,degisen:[...degisen]}; kaydet(); }
+  const kap=$("#ekran");
+  kap.addEventListener("input",e=>{
+    const a=e.target.dataset.a; if(!a) return;
+    v[a]=e.target.value; degisen.add(a);
+    if(e.target.tagName==="SELECT"){ if(id==="zumre"&&a==="toplanti"){ ["gundem","gorusme","karar"].forEach(x=>degisen.delete(x)); } yenile(); evrakFormYenile(); }
+    if(id==="zumre"&&a==="gundem"&&!degisen.has("gorusme")&&sablon[anahtar({id:"gorusme"})]==null){ v.gorusme=gorusmeOtomatik(v.gundem); const t=kap.querySelector('[data-a="gorusme"]'); if(t) t.value=v.gorusme; }
+    if(id==="oturma"&&["sira","sutun","kisi","duzen"].includes(a)){ v.planDizi=null; planCiz(); }
+    sakla();
+  });
+  function evrakFormYenile(){ for(const el of kap.querySelectorAll("[data-a]")) if(el.value!==v[el.dataset.a]) el.value=v[el.dataset.a]??""; }
+  kap.addEventListener("click",e=>{
+    const s=e.target.dataset.sablon, r=e.target.dataset.sifirla;
+    if(s){ S.sablonlar[id]=S.sablonlar[id]||{}; S.sablonlar[id][anahtar({id:s})]=v[s]; kaydet(); bildir("Şablon kaydedildi. Bundan sonra bu metinle başlar."); }
+    if(r){ if(S.sablonlar[id]) delete S.sablonlar[id][anahtar({id:r})]; degisen.delete(r); const a=ev.alanlar.find(x=>x.id===r); v[r]=a.v?a.v(v):""; kap.querySelector(`[data-a="${r}"]`).value=v[r]; sakla(); kaydet(); bildir("Varsayılan metne dönüldü."); }
+  });
+  $("#sifirlaHepsi").onclick=()=>{ if(!confirm("Bu evraktaki tüm değişiklikler silinsin mi?")) return; delete S.kayitlar[id]; kaydet(); evrakForm(id); };
+  $("#onizle").onclick=()=>{ sakla(); onizleme(id,v); };
+
+  /* oturma planı düzenleyici */
+  let secili=null;
+  function planOlustur(){
+    const kisiSay=(+v.sira||1)*(+v.sutun||1)*(+v.kisi||2);
+    let l=[...S.ogrenciler];
+    const trc=(a,b)=>a.ad.localeCompare(b.ad,"tr");
+    if(v.duzen==="Alfabetik") l.sort(trc);
+    else if(v.duzen==="Rastgele"||v.duzen==="Kız-erkek karışık"){ for(let i=l.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[l[i],l[j]]=[l[j],l[i]];} }
+    else l.sort((a,b)=>(+a.no||0)-(+b.no||0));
+    if(v.duzen==="Kız-erkek karışık"){ const k=l.filter(o=>o.cins==="K"), e=l.filter(o=>o.cins!=="K"), m=[]; while(k.length||e.length){ if(e.length) m.push(e.shift()); if(k.length) m.push(k.shift()); } l=m; }
+    const d=Array(kisiSay).fill(""); l.slice(0,kisiSay).forEach((o,i)=>d[i]=o.no+"|"+o.ad); v.planDizi=d;
+    if(l.length>kisiSay) bildir(`Dikkat: ${l.length-kisiSay} öğrenciye yer kalmadı. Sıra sayısını artırın.`);
+  }
+  function planCiz(){
+    const pk=$("#planKart"); if(!pk) return;
+    const kisiSay=(+v.sira||1)*(+v.sutun||1)*(+v.kisi||2);
+    if(!v.planDizi||v.planDizi.length!==kisiSay) planOlustur();
+    const harita=Object.fromEntries(S.ogrenciler.map(o=>[o.no+"|"+o.ad,o]));
+    let h=`<h2>Yerleşim</h2><p>Yer değiştirmek için iki öğrenciye sırayla dokunun.</p><div class="plan-duz"><div class="tahta">TAHTA</div>`;
+    for(let r=0;r<(+v.sira||1);r++){
+      h+=`<div style="display:flex;gap:6px">`;
+      for(let c=0;c<(+v.sutun||1);c++){
+        h+=`<div class="sira" style="flex:1">`;
+        for(let k=0;k<(+v.kisi||2);k++){ const i=(r*(+v.sutun||1)+c)*(+v.kisi||2)+k, o=harita[v.planDizi[i]]; h+=`<button class="koltuk ${o?"":"bos"} ${secili===i?"secili":""}" data-k="${i}">${o?esc(o.ad):"boş"}</button>`; }
+        h+=`</div>`;
+      }
+      h+=`</div>`;
+    }
+    h+=`</div><div class="butonlar"><button class="btn ikincil" id="yenidenDiz">🔀 Yeniden yerleştir</button></div>`;
+    pk.innerHTML=h;
+    pk.querySelectorAll("[data-k]").forEach(b=>b.onclick=()=>{ const i=+b.dataset.k; if(secili==null) secili=i; else { [v.planDizi[secili],v.planDizi[i]]=[v.planDizi[i],v.planDizi[secili]]; secili=null; sakla(); } planCiz(); });
+    $("#yenidenDiz").onclick=()=>{ planOlustur(); secili=null; sakla(); planCiz(); };
+  }
+  if(id==="oturma"){ if(!S.ogrenciler.length) bildir("Önce Bilgilerim'den öğrenci listesini girin."); planCiz(); }
+}
+
+/* ---------- önizleme ve çıktı ---------- */
+function onizleme(id,v){
+  const ev=EVRAKLAR[id], b=baglam(v), bloklar=ev.belge(v,b);
+  const ad=dosyaAdi(`${ev.ad}_${S.okul.sube}_${v.tarih||bugun()}`);
+  ekran("Önizleme",`
+    <div class="kart yazdirma-yok"><p>Belgeyi kontrol edin. Word dosyasını telefonda Word, Google Dokümanlar veya WPS ile açıp düzenleyebilirsiniz.</p></div>
+    <div class="kagit-kap"><div class="kagit" id="kagit">${htmlCiz(bloklar)}</div></div>
+    <div style="height:10px"></div>
+    <div class="alt"><button class="btn" id="word">📝 Word</button><button class="btn" id="pdf">📄 PDF</button><button class="btn ikincil" id="paylas">📤 Paylaş</button></div>
+  `,{geri:()=>evrakForm(id)});
+  const blob=()=>docxBlob(bloklar);
+  $("#word").onclick=()=>indir(blob(),ad+".docx");
+  $("#pdf").onclick=()=>{ bildir("Yazdır ekranında 'PDF olarak kaydet'i seçin."); setTimeout(()=>window.print(),400); };
+  $("#paylas").onclick=async()=>{
+    const f=new File([blob()],ad+".docx",{type:blob().type});
+    if(navigator.canShare&&navigator.canShare({files:[f]})){ try{ await navigator.share({files:[f],title:ev.ad}); }catch(e){} }
+    else { indir(f,ad+".docx"); bildir("Paylaşım desteklenmiyor, dosya indirildi."); }
+  };
+}
+function indir(blob,ad){ const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=ad; document.body.appendChild(a); a.click(); setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},4000); bildir("İndirildi: "+ad); }
+
+/* ---------- yedekleme ---------- */
+function yedekEkrani(){
+  ekran("Yedek",`
+    <div class="kart"><h2>Yedek al</h2><p>Tüm bilgilerinizi (okul, öğrenciler, şablonlar) tek dosyaya kaydeder. Telefon değiştirirken veya uygulamayı silmeden önce yedek alın.</p>
+      <div class="butonlar"><button class="btn" id="yedekAl">💾 Yedek dosyası indir</button></div></div>
+    <div class="kart"><h2>Yedekten geri yükle</h2><p>Daha önce aldığınız yedek dosyasını seçin. Mevcut bilgilerin yerine geçer.</p>
+      <div class="butonlar"><label class="btn ikincil" style="margin:0">📂 Yedek dosyası seç<input type="file" id="yedekYukle" accept=".json,application/json" hidden></label></div></div>
+    <div class="kart"><h2>Her şeyi sil</h2><p>Bu telefondaki tüm bilgileri siler.</p>
+      <div class="butonlar"><button class="btn tehlike" id="sil">Tüm verileri sil</button></div></div>
+  `,{geri:anaSayfa});
+  $("#yedekAl").onclick=()=>indir(new Blob([JSON.stringify(S,null,1)],{type:"application/json"}),`evrak-yedek-${bugun()}.json`);
+  $("#yedekYukle").onchange=async e=>{ const f=e.target.files[0]; if(!f) return; try{ const d=JSON.parse(await f.text()); if(!d.okul) throw 0; S=Object.assign(structuredClone(BOS),d); kaydet(); bildir("Yedek yüklendi."); anaSayfa(); }catch(_){ bildir("Bu dosya geçerli bir yedek değil."); } };
+  $("#sil").onclick=()=>{ if(confirm("Tüm bilgiler silinsin mi? Bu geri alınamaz.")){ localStorage.removeItem(ANAHTAR); S=structuredClone(BOS); anaSayfa(); } };
+}
+
+/* ---------- PWA: çevrimdışı çalışma ve ana ekrana ekleme ---------- */
+if("serviceWorker" in navigator && location.protocol.startsWith("http")) navigator.serviceWorker.register("sw.js").catch(()=>{});
+let kurulumIstegi=null;
+window.addEventListener("beforeinstallprompt",e=>{ e.preventDefault(); kurulumIstegi=e; $("#yukleBtn").hidden=false; });
+$("#yukleBtn").onclick=async()=>{ if(!kurulumIstegi) return; kurulumIstegi.prompt(); await kurulumIstegi.userChoice; kurulumIstegi=null; $("#yukleBtn").hidden=true; };
+window.addEventListener("appinstalled",()=>{ $("#yukleBtn").hidden=true; bildir("Uygulama ana ekrana eklendi."); });
+
+anaSayfa();
+</script>
+</body>
+</html>

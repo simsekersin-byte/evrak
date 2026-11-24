@@ -1,0 +1,20 @@
+// Evrak Defterim - çevrimdışı önbellek
+const SURUM = "evrak-v2";
+const DOSYALAR = ["./", "index.html", "manifest.webmanifest", "icon-192.png", "icon-512.png"];
+self.addEventListener("install", e => {
+  e.waitUntil(caches.open(SURUM).then(c => c.addAll(DOSYALAR)).then(() => self.skipWaiting()));
+});
+self.addEventListener("activate", e => {
+  e.waitUntil(caches.keys().then(k => Promise.all(k.filter(x => x !== SURUM).map(x => caches.delete(x)))).then(() => self.clients.claim()));
+});
+// Önce internetten güncelini dener, yoksa önbellekten açar
+self.addEventListener("fetch", e => {
+  if (e.request.method !== "GET") return;
+  e.respondWith(
+    fetch(e.request).then(r => {
+      const kopya = r.clone();
+      caches.open(SURUM).then(c => c.put(e.request, kopya));
+      return r;
+    }).catch(() => caches.match(e.request, { ignoreSearch: true }).then(r => r || caches.match("index.html")))
+  );
+});
