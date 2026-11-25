@@ -91,6 +91,7 @@ details summary{cursor:pointer;font-weight:600;color:var(--ana2);margin-top:10px
 .ders-saat span{font-weight:400;color:var(--soluk);font-size:12px}
 .ders-icerik{flex:1;font-size:16px;font-weight:600;min-width:120px}
 .soluk{color:var(--soluk);font-weight:400}
+.tarih-git{display:block;margin:4px auto 0;padding:4px 6px;font-size:13px;max-width:160px}
 .mini-hesap{display:block;font-size:12px;font-weight:400;color:var(--soluk);margin-top:2px}
 .yoklama{display:flex;gap:4px;width:100%;padding-left:62px}
 .yk{flex:1;border:1px solid var(--cizgi);background:#fff;border-radius:8px;padding:7px 4px;font:inherit;font-size:13px}
@@ -1046,7 +1047,7 @@ function programEkrani(k,secenek={}){
       return `<div class="ders-satir ${x.t?"":"bos"}"><div class="ders-saat">${esc(x.s.bas)}<br><span>${esc(x.s.bit)}</span></div>
         <div class="ders-icerik" data-h="${g}|${x.j}">${x.t?esc(x.t).replace(/\n/g," · "):`<span class="soluk">boş</span>`}${ozel&&x.t?(()=>{const h=ogrHesap(x.t); return `<span class="mini-hesap">Ödenen ${tl(h.odenen)} · Kalan <b class="${h.kalan>0?"borc":""}">${tl(Math.max(0,h.kalan))}</b></span>`;})():""}</div>
         ${ozel&&x.t?`<div class="yoklama">${["geldi","gelmedi","iptal"].map(du=>`<button class="yk ${y&&y.durum===du?"sec-"+du:""}" data-yk="${yk}" data-ad="${esc(x.t)}" data-du="${du}">${{geldi:"✓ Geldi",gelmedi:"✗ Gelmedi",iptal:"İptal"}[du]}</button>`).join("")}</div>`:""}</div>`; };
-    govde=`<div class="hafta-nav" style="margin-bottom:8px"><button class="nav-ok" id="oncekiH">‹</button><div class="hafta-bilgi"><b>${GUN_UZUN[g]}</b><span>${trTarih(d.tarih)}${d.tarih===bugunIso?" · <em>bugün</em>":""}</span></div><button class="nav-ok" id="sonrakiH">›</button></div>
+    govde=`<div class="hafta-nav" style="margin-bottom:8px"><button class="nav-ok" id="oncekiH">‹</button><div class="hafta-bilgi"><b>${GUN_UZUN[g]}</b><span>${trTarih(d.tarih)}${d.tarih===bugunIso?" · <em>bugün</em>":""}</span><input type="date" id="tarihGit" class="tarih-git" value="${d.tarih}" aria-label="Tarihe git"></div><button class="nav-ok" id="sonrakiH">›</button></div>
       <div class="gun-cipleri">${gunler.map((x,i)=>`<button class="gun-cip ${i===g?"aktif":""} ${isoTarih(x)===bugunIso?"bugun":""}" data-tr="${isoTarih(x)}">${GUN_KISA[i]}<b>${x.getDate()}</b></button>`).join("")}</div>
       <div class="kart" style="padding:6px 12px">${(ozel?dersler.filter(x=>x.t):dersler.filter(x=>x.t||dersler.some(y=>y.t))).map(satir).join("")||`<p style="padding:12px 0">Bu gün ders yok.</p>`}
       ${ekstralar.map(([key,e])=>{ const y=o.yoklama[key]; return `<div class="ders-satir"><div class="ders-saat">${esc(e.saat||"")}<br><span>ekstra</span></div><div class="ders-icerik">${esc(e.ad)}</div><div class="yoklama">${["geldi","gelmedi","iptal"].map(du=>`<button class="yk ${y&&y.durum===du?"sec-"+du:""}" data-yk="${key}" data-ad="${esc(e.ad)}" data-du="${du}">${{geldi:"✓ Geldi",gelmedi:"✗ Gelmedi",iptal:"İptal"}[du]}</button>`).join("")}<button class="yk" data-ekstra-sil="${key}">Sil</button></div></div>`; }).join("")}
@@ -1059,6 +1060,7 @@ function programEkrani(k,secenek={}){
   document.querySelectorAll("[data-gr]").forEach(b=>b.onclick=()=>programEkrani(k,{gorunum:b.dataset.gr}));
   document.querySelectorAll("[data-tr]").forEach(b=>b.onclick=()=>programEkrani(k,{tarih:b.dataset.tr}));
   const kay=n=>{ const x=new Date(d.tarih+"T12:00"); x.setDate(x.getDate()+n); programEkrani(k,{tarih:isoTarih(x)}); };
+  const tg=$("#tarihGit"); if(tg) tg.onchange=()=>{ if(tg.value) programEkrani(k,{tarih:tg.value}); };
   const oh=$("#oncekiH"); if(oh){ oh.onclick=()=>kay(-1); $("#sonrakiH").onclick=()=>kay(1); }
   document.querySelectorAll("[data-h]").forEach(c=>c.onclick=()=>{ const key=c.dataset.h, eski=p.hucre[key]||""; const yeni=prompt(ozel?"Öğrencinin adı (boş bırakırsanız ders silinir):":"Ders (boş bırakırsanız silinir):",eski); if(yeni===null) return; if(yeni.trim()) p.hucre[key]=yeni.trim(); else delete p.hucre[key]; kaydet(); yenile(); });
   document.querySelectorAll("[data-yk]").forEach(b=>b.onclick=()=>{ const key=b.dataset.yk, ad=b.dataset.ad, du=b.dataset.du, mev=o.yoklama[key];
@@ -1086,20 +1088,41 @@ function ozelOgrenciEkrani(ad){
       <label>Ders başı ücret (₺)</label><input id="ucret" type="number" inputmode="decimal" value="${o.ucret[ad]??""}">
       <p class="ipucu">Yeni ücret bundan sonra işaretlenen derslere uygulanır.</p>
       <div class="butonlar"><button class="btn" id="odemeEkle">💰 Ödeme al</button></div></div>
+    <div class="kart"><h2>🗓 Geçmiş ders ekle</h2>
+      <label>Tarih</label><input id="gTarih" type="date" max="${isoTarih(new Date())}" value="${isoTarih(new Date())}">
+      <label>Durum</label><select id="gDurum"><option value="geldi">✓ Geldi (ders yapıldı)</option><option value="gelmedi">✗ Gelmedi</option><option value="iptal">İptal</option></select>
+      <div class="butonlar"><button class="btn" id="gEkle">+ Bu tarihe ders ekle</button></div>
+      <p class="ipucu">O gün programda bu öğrencinin dersi varsa o ders işaretlenir, yoksa ekstra ders olarak eklenir.</p>
+      <details><summary>Programa göre toplu doldur</summary>
+        <label>Başlangıç tarihi</label><input id="tBas" type="date" max="${isoTarih(new Date())}">
+        <p class="ipucu">Bu tarihten dünü de kapsayacak şekilde, programdaki ${esc(ad)} derslerinin işaretlenmemiş olanları "Geldi" yapılır. Sonra gelmediği günleri tek tek düzeltebilirsiniz.</p>
+        <button class="btn ikincil" id="tDoldur">Toplu doldur</button></details></div>
     <div class="kart"><h2>📄 Veliye hesap özeti</h2>
       <label>Dönem</label><select id="donem"><option value="bu">Bu ay</option><option value="gecen">Geçen ay</option><option value="tum">Tüm zamanlar</option></select>
       <div class="butonlar"><button class="btn" id="pdfGonder">📤 PDF oluştur ve gönder</button></div>
       <p class="ipucu">Paylaş ekranından WhatsApp'ı seçip veliye gönderebilirsiniz. Bu ay ya da geçen ay seçilirse önceki aylardan kalan borç "devir" olarak eklenir.</p></div>
     <div class="kart"><h2>Hareketler</h2>${hareket.map(x=>x.tur==="ders"
-      ?`<div class="hareket"><span>${trTarih(x.tarih)} · ders ${x.y.durum==="geldi"?"✓":x.y.durum==="gelmedi"?"✗ gelmedi":"iptal"}</span><b>${x.y.durum==="geldi"?"+"+tl(x.y.ucret):"—"}</b></div>`
+      ?`<div class="hareket"><span>${trTarih(x.tarih)} · ders ${x.y.durum==="geldi"?"✓":x.y.durum==="gelmedi"?"✗ gelmedi":"iptal"}</span><b>${x.y.durum==="geldi"?"+"+tl(x.y.ucret):"—"} <button class="yk" data-dsil="${esc(x.key)}">Sil</button></b></div>`
       :`<div class="hareket odeme"><span>${trTarih(x.tarih)} · ödeme${x.x.not?" ("+esc(x.x.not)+")":""}</span><b>−${tl(x.x.tutar)} <button class="yk" data-sil="${x.x.i}">Sil</button></b></div>`).join("")||"<p>Henüz hareket yok.</p>"}</div>
     <details><summary>Öğrenciyi kaldır</summary><p class="ipucu">Ücret bilgisi silinir; geçmiş dersler ve ödemeler kalır.</p><button class="btn tehlike" id="ogrSil">Kaldır</button></details>`,{geri:()=>programEkrani("ozel",{sekme:"odeme"})});
   $("#pdfGonder").onclick=()=>{ const n=new Date(), v=$("#donem").value; let d=[null,null];
     if(v==="bu") d=[isoTarih(new Date(n.getFullYear(),n.getMonth(),1)),isoTarih(new Date(n.getFullYear(),n.getMonth()+1,0))];
     if(v==="gecen") d=[isoTarih(new Date(n.getFullYear(),n.getMonth()-1,1)),isoTarih(new Date(n.getFullYear(),n.getMonth(),0))];
     hesapOzetiPaylas(ad,d); };
+  const ogrSlotlari=iso=>{ const p=(S.programlar||{}).ozel; if(!p) return []; const g=gunNo(new Date(iso+"T12:00")); return p.saatler.map((_,j)=>j).filter(j=>(p.hucre[g+"|"+j]||"").trim()===ad).map(j=>iso+"|"+g+"|"+j); };
+  $("#gEkle").onclick=()=>{ const t=$("#gTarih").value, du=$("#gDurum").value; if(!t) return bildir("Tarih seçin.");
+    const bos=ogrSlotlari(t).find(key=>!o.yoklama[key]); let key=bos;
+    if(!key){ key=t+"|x|"+Date.now(); o.ekstra[key]={ad,saat:""}; }
+    o.yoklama[key]={ad,durum:du,ucret:+o.ucret[ad]||0}; kaydet(); bildir(trTarih(t)+" eklendi."); ozelOgrenciEkrani(ad); };
+  $("#tDoldur").onclick=()=>{ const b=$("#tBas").value; if(!b) return bildir("Başlangıç tarihi seçin.");
+    const yeni=[]; const x=new Date(b+"T12:00"), son=isoTarih(new Date());
+    while(isoTarih(x)<son){ ogrSlotlari(isoTarih(x)).forEach(key=>{ if(!o.yoklama[key]) yeni.push(key); }); x.setDate(x.getDate()+1); }
+    if(!yeni.length) return bildir("Eklenecek ders bulunamadı.");
+    if(!confirm(`${yeni.length} ders "Geldi" olarak eklenecek. Onaylıyor musunuz?`)) return;
+    yeni.forEach(key=>o.yoklama[key]={ad,durum:"geldi",ucret:+o.ucret[ad]||0}); kaydet(); bildir(yeni.length+" ders eklendi."); ozelOgrenciEkrani(ad); };
+  document.querySelectorAll("[data-dsil]").forEach(b=>b.onclick=()=>{ if(!confirm("Bu ders kaydı silinsin mi?")) return; const key=b.dataset.dsil; delete o.yoklama[key]; delete o.ekstra[key]; kaydet(); ozelOgrenciEkrani(ad); });
   $("#ucret").onchange=e=>{ o.ucret[ad]=+String(e.target.value).replace(",",".")||0; kaydet(); bildir("Ücret kaydedildi."); };
-  $("#odemeEkle").onclick=()=>{ const t=prompt(`${ad} için alınan tutar (₺):`,h.kalan>0?String(h.kalan):""); if(!t) return; const tutar=+String(t).replace(",","."); if(!(tutar>0)) return; const not=prompt("Not (isteğe bağlı, ör. nakit / havale):","")||""; o.odemeler.push({ad,tarih:isoTarih(new Date()),tutar,not}); kaydet(); ozelOgrenciEkrani(ad); };
+  $("#odemeEkle").onclick=()=>{ const t=prompt(`${ad} için alınan tutar (₺):`,h.kalan>0?String(h.kalan):""); if(!t) return; const tutar=+String(t).replace(",","."); if(!(tutar>0)) return; const bt=isoTarih(new Date()).split("-").reverse().join("."); const tg=prompt("Ödeme tarihi (gg.aa.yyyy):",bt); if(tg===null) return; const m=String(tg).trim().match(/^(\d{1,2})[./-](\d{1,2})[./-](\d{4})$/); const tarih=m?`${m[3]}-${m[2].padStart(2,"0")}-${m[1].padStart(2,"0")}`:isoTarih(new Date()); const not=prompt("Not (isteğe bağlı, ör. nakit / havale):","")||""; o.odemeler.push({ad,tarih,tutar,not}); kaydet(); ozelOgrenciEkrani(ad); };
   document.querySelectorAll("[data-sil]").forEach(b=>b.onclick=()=>{ if(!confirm("Ödeme silinsin mi?")) return; o.odemeler.splice(+b.dataset.sil,1); kaydet(); ozelOgrenciEkrani(ad); });
   $("#ogrSil").onclick=()=>{ if(!confirm(ad+" kaldırılsın mı?")) return; delete o.ucret[ad]; kaydet(); programEkrani("ozel",{sekme:"odeme"}); };
 }
