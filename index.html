@@ -49,6 +49,26 @@ textarea.uzun{min-height:200px}
 .bildirim.acik{opacity:1}
 details summary{cursor:pointer;font-weight:600;color:var(--ana2);margin-top:10px}
 .sayac{font-size:13px;color:var(--iyi);font-weight:600}
+/* Haftalık plan paneli */
+.panel-giris{margin-bottom:10px;background:linear-gradient(135deg,#1f5f8b,#2f7fb3);color:#fff;border:0}
+.panel-giris span{color:#e3eef7!important}
+.sekmeler{display:flex;gap:6px;margin-bottom:10px}
+.sekme{flex:1;border:1px solid var(--cizgi);background:#fff;border-radius:10px;padding:10px;font:inherit;font-weight:700;color:var(--soluk)}
+.sekme.aktif{background:var(--ana);color:#fff;border-color:var(--ana)}
+.hafta-nav{display:flex;align-items:center;gap:6px;background:#fff;border-radius:16px;box-shadow:var(--golge);padding:8px;margin-bottom:12px}
+.hafta-bilgi{flex:1;text-align:center;min-width:0}
+.hafta-bilgi b{display:block;font-size:19px}
+.hafta-bilgi span{font-size:14px;color:var(--soluk)}
+.hafta-bilgi em{color:var(--iyi);font-style:normal;font-weight:700}
+.nav-ok{border:0;background:#eef3f8;color:var(--ana2);font-size:26px;width:44px;height:44px;border-radius:12px;font-weight:700}
+.nav-ok.kucuk{font-size:14px}
+.nav-ok:disabled{opacity:.3}
+.plan-kart{border-radius:16px;padding:16px 18px}
+.pbolum{padding:12px 0;border-bottom:1px solid var(--cizgi)}
+.pbolum:last-child{border-bottom:0}
+.petiket{font-size:12px;font-weight:700;letter-spacing:.06em;color:var(--soluk);margin-bottom:6px;text-transform:uppercase}
+.pmetin{font-size:16px;font-weight:600;line-height:1.45}
+.plan-kart.buyuk .pmetin{font-size:20px}
 /* Kağıt önizleme */
 .kagit-kap{overflow-x:auto;background:#cfd6de;border-radius:12px;padding:12px}
 .kagit{background:#fff;color:#000;width:100%;max-width:700px;margin:0 auto;padding:28px 26px;font-family:"Times New Roman",Times,serif;font-size:14px;line-height:1.35;box-shadow:0 2px 8px rgba(0,0,0,.2)}
@@ -347,7 +367,7 @@ async function docxTablolar(buf){
   return tablolar;
 }
 /* ---------- Yıllık plan çözümleme ---------- */
-const PLAN_ALAN={ay:/^AY(LAR)?$/, hafta:/HAFTA/, saat:/SAAT|SURE/, tema:/TEMA|UNITE/, konu:/KONU|ICERIK/, cikti:/CIKTI|KAZANIM/, surec:/SUREC/, olcme:/OLCME|DEGERLENDIRME|KANIT/, belirli:/BELIRLI/};
+const PLAN_ALAN={tarih:/TARIH/, ay:/^AY(LAR)?$/, hafta:/HAFTA/, saat:/SAAT|SURE/, tema:/TEMA|UNITE/, konu:/KONU|ICERIK/, cikti:/CIKTI|KAZANIM/, surec:/SUREC/, olcme:/OLCME|DEGERLENDIRME|KANIT/, belirli:/BELIRLI/};
 function planAlanlari(basliklar){
   const n=basliklar.map(h=>normAnahtar(h).replace(/_/g," "));
   const m={}; for(const [k,re] of Object.entries(PLAN_ALAN)){ const i=n.findIndex((h,j)=>re.test(h)&&!Object.values(m).includes(j)); if(i>=0) m[k]=i; }
@@ -359,8 +379,8 @@ function planCikar(tablolar){
     for(let i=0;i<t.length;i++){
       const r=t[i]; if(!r.some(x=>x.trim())) continue;
       const m=planAlanlari(r);
-      if(Object.keys(m).length>=3){ if(!bas) bas=r.map(x=>x.replace(/\s+/g," ").trim()); continue; }
-      if(!bas) continue;
+      if(r.length>=4&&Object.keys(m).length>=3&&Object.keys(m).length>=r.filter(x=>x.trim()).length/2){ if(!bas) bas=r.map(x=>x.replace(/\s+/g," ").trim()); continue; }
+      if(!bas||r.length!==bas.length) continue; // farklı yapıdaki tabloları (tema bilgi tablosu vb.) atla
       sat.push(bas.map((_,j)=>(r[j]||"").trim()));
     }
   }
@@ -702,7 +722,7 @@ const sinifSecenek = ()=>(S.siniflar&&S.siniflar.length?S.siniflar:[S.okul.sube]
 function planGetir(sube){ return S.yillik[seviye(sube)]||null; }
 function satirDeger(plan,r,k){ const i=plan.alan[k]; return i==null?"":(r.h[i]||""); }
 function haftaEtiket(plan,r){
-  const p=[satirDeger(plan,r,"ay"),satirDeger(plan,r,"hafta")].filter(Boolean).join(" · ").replace(/\n/g," ");
+  const p=[satirDeger(plan,r,"hafta"),satirDeger(plan,r,"tarih")||satirDeger(plan,r,"ay")].filter(Boolean).join(" · ").replace(/\n/g," ");
   const k=(satirDeger(plan,r,"konu")||satirDeger(plan,r,"tema")||satirDeger(plan,r,"cikti")).replace(/\n/g," ");
   return (p?p+" – ":"")+(k.length>55?k.slice(0,55)+"…":k);
 }
@@ -720,8 +740,8 @@ function planKutusuCiz(v){
   const say=p?p.satirlar.filter(r=>!r.ara).length:0;
   return `<div class="kart" style="background:#f7fafc;border:1px solid var(--cizgi);box-shadow:none;margin-top:12px">
     <h2 style="font-size:15px">${sv}. sınıf yıllık planı</h2>
-    ${p?`<p>✅ Yüklü: <b>${say} hafta</b>${p.kaynak?` · ${esc(p.kaynak)}`:""}</p>`:`<p>Henüz yüklenmedi. MEB'in yıllık plan dosyasını seçin (.zip, .docx veya .xlsx). Zip dosyasını açmanıza gerek yok.</p>`}
-    <div class="butonlar"><label class="btn ${p?"ikincil":""}" style="margin:0">📥 ${p?"Yeni dosya yükle":"MEB dosyasını seç"}<input type="file" data-plan-dosya accept=".zip,.docx,.xlsx,application/zip,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" hidden></label>
+    ${p?`<p>✅ Yüklü: <b>${say} hafta</b>${p.kaynak?` · ${esc(p.kaynak)}`:""}</p>`:`<p>Henüz yüklenmedi. Yıllık plan dosyasını seçin (Word, Excel ya da MEB'in zip dosyası).</p>`}
+    <div class="butonlar"><label class="btn ${p?"ikincil":""}" style="margin:0">📥 ${p?"Yeni dosya yükle":"Plan dosyasını seç"}<input type="file" data-plan-dosya accept=".zip,.docx,.xlsx,application/zip,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" hidden></label>
     ${p?`<button class="btn tehlike" data-plan-sil>Sil</button>`:""}</div>
     <div data-plan-secim></div>
   </div>`;
@@ -823,7 +843,7 @@ const PLAN_EVRAKLARI={
       sinifAlani,
       {id:"kapsam",ad:"Ne hazırlansın?",tur:"secim",secenek:["Seçili hafta","Tüm yıl"],ipucu:"\"Tüm yıl\" her haftayı ayrı sayfada tek dosyada verir.",v:()=>"Seçili hafta"},
       {id:"hafta",ad:"Hafta",tur:"secim",secenek:v=>{ const p=planGetir(v.sinif); return p?p.satirlar.map((r,i)=>({d:String(i),e:haftaEtiket(p,r)})).filter((_,i)=>!p.satirlar[i].ara):[{d:"",e:"Önce yıllık planı yükleyin"}]; },
-        v:x=>{ const p=planGetir(x.sinif); if(!p) return ""; const i=p.satirlar.findIndex(r=>!r.ara); return String(Math.max(0,i)); }},
+        v:x=>{ const p=planGetir(x.sinif); if(!p) return ""; let i=buHafta(p); if(p.satirlar[i]&&p.satirlar[i].ara) i=p.satirlar.findIndex((r,j)=>j>i&&!r.ara); if(i<0) i=p.satirlar.findIndex(r=>!r.ara); return String(Math.max(0,i)); }},
       {id:"tarih",ad:"Tarih",tur:"date",v:bugun},
       planKutusu,
       ...gunlukMetinAlanlari
@@ -841,8 +861,80 @@ const PLAN_EVRAKLARI={
   }
 };
 
+/* =========================================================
+   HAFTALIK PLAN PANELİ: yıllık planı hafta hafta gösterir
+   ========================================================= */
+const AYLAR=["ocak","şubat","mart","nisan","mayıs","haziran","temmuz","ağustos","eylül","ekim","kasım","aralık"];
+function ayNo(s){ s=String(s||"").toLocaleLowerCase("tr-TR"); const i=AYLAR.findIndex(a=>s.startsWith(a.slice(0,3))); return i; }
+/* "14-18 Eylül", "28 Eylül-02 Ekim" → [başlangıç, bitiş] */
+function haftaAraligi(metin){
+  const m=String(metin||"").match(/(\d{1,2})\s*([A-Za-zÇĞİÖŞÜçğıöşü]+)?\s*[-–]\s*(\d{1,2})\s*([A-Za-zÇĞİÖŞÜçğıöşü]+)/);
+  if(!m) return null;
+  const a2=ayNo(m[4]), a1=m[2]?ayNo(m[2]):a2; if(a1<0||a2<0) return null;
+  const y1=+(String(S.okul.yil).match(/\d{4}/)||[new Date().getFullYear()])[0];
+  const yil=a=>a>=7?y1:y1+1;
+  return [new Date(yil(a1),a1,+m[1]), new Date(yil(a2),a2,+m[3],23,59)];
+}
+function satirAraligi(plan,r){ return haftaAraligi(satirDeger(plan,r,"tarih")||satirDeger(plan,r,"hafta")||satirDeger(plan,r,"ay")||(r.ara?r.h.find(Boolean):"")); }
+function buHafta(plan){
+  const simdi=new Date(); let son=-1;
+  for(let i=0;i<plan.satirlar.length;i++){ const a=satirAraligi(plan,plan.satirlar[i]); if(!a) continue; son=i; if(simdi<=a[1]) return i; }
+  return son>=0?son:0;
+}
+function panelEkrani(sube){
+  const siniflar=sinifSecenek(); sube=sube||siniflar[0];
+  const p=planGetir(sube);
+  const durum=(S.panel=S.panel||{});
+  let i=p?(durum[sube]!=null&&durum[sube]<p.satirlar.length?durum[sube]:buHafta(p)):0;
+  const sekmeler=`<div class="sekmeler">${siniflar.map(x=>`<button class="sekme ${x===sube?"aktif":""}" data-sube="${esc(x)}">${esc(x)}</button>`).join("")}</div>`;
+  if(!p){
+    ekran("Haftalık Plan",`${sekmeler}<div data-ozel="planDosya">${planKutusuCiz({sinif:sube})}</div>
+      <p class="ipucu">Yıllık plan dosyası (Word ya da Excel) bir kez yüklenir, sonra internetsiz de görünür.</p>`,{geri:anaSayfa});
+    planKutusuBagla($('[data-ozel="planDosya"]'),{sinif:sube},()=>panelEkrani(sube));
+  }else{
+    const r=p.satirlar[i], haftalar=p.satirlar.filter(x=>!x.ara), sira=haftalar.indexOf(r)+1;
+    const d=k=>satirDeger(p,r,k);
+    const baslik=r.ara?(r.h.find(Boolean)||"Tatil"):(d("tarih")||d("ay")||d("hafta"));
+    const alt=r.ara?"Tatil haftası":[d("hafta"),sira?`${sira} / ${haftalar.length}`:""].filter(Boolean).join(" · ");
+    const buMu=i===buHafta(p);
+    const kullanilan=new Set(["tarih","hafta","ay"].map(k=>p.alan[k]).filter(x=>x!=null));
+    const sira2=["tema","konu","cikti","surec","olcme","belirli","saat"];
+    const ana=sira2.map(k=>p.alan[k]).filter(x=>x!=null);
+    const diger=p.basliklar.map((_,j)=>j).filter(j=>!kullanilan.has(j)&&!ana.includes(j));
+    const blok=j=>{ const t=(r.h[j]||"").trim(); if(!t) return ""; return `<div class="pbolum"><div class="petiket">${esc(p.basliklar[j])}</div><div class="pmetin">${esc(t).replace(/\n/g,"<br>")}</div></div>`; };
+    ekran("Haftalık Plan",`${sekmeler}
+      <div class="hafta-nav">
+        <button class="nav-ok" id="onceki" ${i<=0?"disabled":""} aria-label="Önceki hafta">‹</button>
+        <div class="hafta-bilgi"><b>${esc(baslik)}</b><span>${esc(alt)}${buMu?` · <em>bu hafta</em>`:""}</span></div>
+        <button class="nav-ok" id="sonraki" ${i>=p.satirlar.length-1?"disabled":""} aria-label="Sonraki hafta">›</button>
+        <button class="nav-ok kucuk" id="yaziBoyu" aria-label="Yazı boyutu">A↑</button>
+      </div>
+      <div class="kart plan-kart ${S.panelBuyuk?"buyuk":""}">
+        ${r.ara?`<div class="pbolum"><div class="pmetin">🏖️ ${esc(baslik)}</div></div>`:ana.map(blok).join("")}
+        ${!r.ara&&diger.some(j=>(r.h[j]||"").trim())?`<details><summary>Diğer bilgiler (beceriler, değerler…)</summary>${diger.map(blok).join("")}</details>`:""}
+      </div>
+      <div class="butonlar">
+        ${buMu?"":`<button class="btn ikincil" id="bugune">Bu haftaya dön</button>`}
+        ${r.ara?"":`<button class="btn ikincil" id="gunlukGit">🗓️ Bu haftanın günlük planı</button>`}
+      </div>
+      <details style="margin-top:14px"><summary>Plan dosyasını değiştir</summary><div data-ozel="planDosya">${planKutusuCiz({sinif:sube})}</div></details>
+    `,{geri:anaSayfa});
+    const git=n=>{ durum[sube]=n; kaydet(); panelEkrani(sube); };
+    $("#onceki").onclick=()=>git(i-1); $("#sonraki").onclick=()=>git(i+1);
+    $("#yaziBoyu").onclick=()=>{ S.panelBuyuk=!S.panelBuyuk; kaydet(); panelEkrani(sube); };
+    const bg=$("#bugune"); if(bg) bg.onclick=()=>{ delete durum[sube]; kaydet(); panelEkrani(sube); };
+    const gg=$("#gunlukGit"); if(gg) gg.onclick=()=>{ const k=S.kayitlar.gunluk||{degerler:{},degisen:[]}; Object.assign(k.degerler,{sinif:sube,hafta:String(i),kapsam:"Seçili hafta"}); k.degisen=[...new Set([...(k.degisen||[]),"sinif","hafta","kapsam"])]; S.kayitlar.gunluk=k; kaydet(); evrakForm("gunluk"); };
+    planKutusuBagla($('[data-ozel="planDosya"]'),{sinif:sube},()=>{ delete durum[sube]; kaydet(); panelEkrani(sube); });
+    /* kaydırarak hafta değiştir */
+    let x0=null; const kk=$(".plan-kart");
+    kk.addEventListener("touchstart",e=>{x0=e.touches[0].clientX;},{passive:true});
+    kk.addEventListener("touchend",e=>{ if(x0==null) return; const dx=e.changedTouches[0].clientX-x0; x0=null; if(dx>70&&i>0) git(i-1); else if(dx<-70&&i<p.satirlar.length-1) git(i+1); });
+  }
+  document.querySelectorAll("[data-sube]").forEach(b=>b.onclick=()=>panelEkrani(b.dataset.sube));
+}
+
 Object.assign(EVRAKLAR, PLAN_EVRAKLARI);
-const EVRAK_SIRASI=["yillik","gunluk","sok","zumre","veli","rehberlik","oturma"];
+const EVRAK_SIRASI=["gunluk","sok","zumre","veli","rehberlik","oturma"];
 
 /* =========================================================
    EKRANLAR
@@ -859,10 +951,12 @@ function anaSayfa(){
   const o=S.okul;
   ekran("Evrak Defterim",`
     <div class="kart"><h2>${esc(o.okul||"Okulunuz")}</h2><p>${esc(o.ogretmen)} · ${esc(o.brans)} · ${esc(o.sube)} rehber öğretmeni · ${S.ogrenciler.length} öğrenci · ${esc(o.yil)}</p></div>
+    <button class="evrak panel-giris" id="panelGit"><span class="sim">📖</span><b>Haftalık Plan</b><span>${sinifSecenek().map(x=>{const p=planGetir(x); if(!p) return `${esc(x)}: plan yüklenmedi`; const r=p.satirlar[buHafta(p)]; return `${esc(x)}: ${esc((satirDeger(p,r,"konu")||satirDeger(p,r,"tema")||r.h.find(Boolean)||"").split("\n")[0])}`;}).join("<br>")}</span></button>
     <div class="izgara">${EVRAK_SIRASI.map(id=>[id,EVRAKLAR[id]]).map(([id,e])=>`<button class="evrak" data-ev="${id}"><span class="sim">${e.sim}</span><b>${e.ad}</b><span>${e.acik}</span></button>`).join("")}</div>
     <div class="butonlar"><button class="btn ikincil" id="ayar">⚙️ Bilgilerim</button><button class="btn ikincil" id="yedek">💾 Yedek</button></div>
     <p class="ipucu" style="text-align:center;margin-top:16px">Tüm bilgiler yalnızca bu telefonda saklanır.</p>`);
   document.querySelectorAll("[data-ev]").forEach(b=>b.onclick=()=>evrakForm(b.dataset.ev));
+  $("#panelGit").onclick=()=>panelEkrani();
   $("#ayar").onclick=()=>kurulum(false); $("#yedek").onclick=yedekEkrani;
 }
 
