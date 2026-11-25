@@ -1507,7 +1507,7 @@ function anaSayfa(){
     <div class="prog-izgara">${Object.entries(PROGRAM_TURLERI).map(([k,t])=>{ const p=prog(k); return `<button class="evrak" data-prog="${k}"><span class="sim">${t.sim}</span><b>${t.ad}</b><span>${p?esc(sonrakiDers(p)):"yüklenmedi"}</span></button>`; }).join("")}</div>
     <div class="izgara">${EVRAK_SIRASI.map(id=>[id,EVRAKLAR[id]]).map(([id,e])=>`<button class="evrak" data-ev="${id}"><span class="sim">${e.sim}</span><b>${e.ad}</b><span>${e.acik}</span></button>`).join("")}</div>
     <div class="butonlar"><button class="btn ikincil" id="ayar">⚙️ Bilgilerim</button><button class="btn ikincil" id="yedek">💾 Yedek ve eşitleme</button></div>
-    <p class="ipucu" style="text-align:center;margin-top:16px">Tüm bilgiler yalnızca bu telefonda saklanır.</p>`);
+    <p class="ipucu" style="text-align:center;margin-top:16px">Tüm bilgiler yalnızca bu telefonda saklanır.<br><small>Sürüm 20</small></p>`);
   document.querySelectorAll("[data-ev]").forEach(b=>b.onclick=()=>evrakForm(b.dataset.ev));
   $("#panelGit").onclick=()=>panelEkrani(); $("#rehberGit").onclick=()=>rehberEkrani();
   document.querySelectorAll("[data-prog]").forEach(b=>b.onclick=()=>programEkrani(b.dataset.prog));
