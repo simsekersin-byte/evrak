@@ -69,6 +69,11 @@ details summary{cursor:pointer;font-weight:600;color:var(--ana2);margin-top:10px
 .petiket{font-size:12px;font-weight:700;letter-spacing:.06em;color:var(--soluk);margin-bottom:6px;text-transform:uppercase}
 .pmetin{font-size:16px;font-weight:600;line-height:1.45}
 .plan-kart.buyuk .pmetin{font-size:20px}
+/* Proje ödevi */
+.proje-satir{background:#fff;border-radius:12px;box-shadow:var(--golge);padding:10px 12px;margin-bottom:8px}
+.proje-ad{display:flex;justify-content:space-between;gap:8px;margin-bottom:6px}
+.proje-ad span{color:var(--soluk);font-size:13px}
+.proje-ogr{font-size:13px;color:var(--iyi);font-weight:600;margin-top:4px}
 /* Kağıt önizleme */
 .kagit-kap{overflow-x:auto;background:#cfd6de;border-radius:12px;padding:12px}
 .kagit{background:#fff;color:#000;width:100%;max-width:700px;margin:0 auto;padding:28px 26px;font-family:"Times New Roman",Times,serif;font-size:14px;line-height:1.35;box-shadow:0 2px 8px rgba(0,0,0,.2)}
@@ -309,11 +314,20 @@ async function zipAcBayt(f){
   return new Uint8Array(await new Response(s).arrayBuffer());
 }
 async function zipAc(f){ const b=await zipAcBayt(f); return b==null?null:new TextDecoder().decode(b); }
-async function xlsxSatirlar(buf){
+/* Excel sayfa adları → dosya yolu */
+async function xlsxSayfaAdlari(z){
+  const wb=await zipAc(z["xl/workbook.xml"]), rel=await zipAc(z["xl/_rels/workbook.xml.rels"]); if(!wb||!rel) return {};
+  const x=t=>new DOMParser().parseFromString(t,"application/xml"), hedef={};
+  for(const r of x(rel).getElementsByTagNameNS("*","Relationship")){ let t=r.getAttribute("Target")||""; t=t.replace(/^\//,""); if(!t.startsWith("xl/")) t="xl/"+t; hedef[r.getAttribute("Id")]=t; }
+  const sonuc={}; for(const sh of x(wb).getElementsByTagNameNS("*","sheet")){ const id=sh.getAttributeNS("http://schemas.openxmlformats.org/officeDocument/2006/relationships","id")||sh.getAttribute("r:id"); if(hedef[id]) sonuc[sh.getAttribute("name")]=hedef[id]; }
+  return sonuc;
+}
+async function xlsxSatirlar(buf,sayfaAdi){
   const z=await zipOku(buf), xml=s=>new DOMParser().parseFromString(s,"application/xml");
   const ortak=[]; const ss=await zipAc(z["xl/sharedStrings.xml"]);
   if(ss) for(const si of xml(ss).getElementsByTagNameNS("*","si")) ortak.push([...si.getElementsByTagNameNS("*","t")].map(t=>t.textContent).join(""));
-  let sayfa=Object.keys(z).filter(k=>/^xl\/worksheets\/sheet\d*\.xml$/.test(k)).sort()[0];
+  let sayfa=Object.keys(z).filter(k=>/^xl\/worksheets\/sheet\d*\.xml$/.test(k)).sort((a,b)=>(+a.match(/\d+/)||0)-(+b.match(/\d+/)||0))[0];
+  if(sayfaAdi){ const adlar=await xlsxSayfaAdlari(z); const n=normAnahtar(sayfaAdi).replace(/[^A-Z0-9]/g,""); const bul=Object.keys(adlar).find(a=>normAnahtar(a).replace(/[^A-Z0-9]/g,"")===n); if(!bul) throw new Error(`"${sayfaAdi}" sayfası bulunamadı`); sayfa=adlar[bul]; }
   if(!sayfa) throw new Error("sayfa yok");
   const d=xml(await zipAc(z[sayfa])), sonuc=[];
   for(const r of d.getElementsByTagNameNS("*","row")){
@@ -934,7 +948,77 @@ function panelEkrani(sube){
 }
 
 Object.assign(EVRAKLAR, PLAN_EVRAKLARI);
-const EVRAK_SIRASI=["gunluk","sok","zumre","veli","rehberlik","oturma"];
+/* =========================================================
+   PROJE ÖDEVİ DAĞITIM LİSTESİ (sınıf rehber öğretmeni için)
+   Öğrenciler listeden gelir; ders seçilince öğretmen otomatik gelir.
+   ========================================================= */
+function dersListesi(){
+  const l=S.subeOgretmen.filter(x=>x.ders).map(x=>({ders:x.ders,ad:x.ad}));
+  if(S.okul.brans&&!l.some(x=>BUYUK(x.ders)===BUYUK(S.okul.brans))) l.push({ders:S.okul.brans,ad:S.okul.ogretmen});
+  return l.sort((a,b)=>a.ders.localeCompare(b.ders,"tr"));
+}
+const ogrAnahtar=o=>o.no+"|"+o.ad;
+function dersOgretmeni(ders){ const d=dersListesi().find(x=>x.ders===ders); return d?d.ad:""; }
+/* Okulun proje Excel dosyasından ders-öğretmen listesini al */
+async function dersleriExceldenAl(buf){
+  const sube=S.okul.sube.replace(/\//g,"");
+  const rows=await xlsxSatirlar(buf,sube);
+  let bas=-1,cD=-1;
+  for(let i=0;i<rows.length&&bas<0;i++){ const r=rows[i].map(x=>normAnahtar(x)); const j=r.findIndex((c,k)=>c==="DERS"&&/OGRETMEN/.test(r[k+1]||"")); if(j>=0){bas=i;cD=j;} }
+  if(bas<0) throw new Error("Ders-öğretmen tablosu bulunamadı");
+  const l=[]; for(const r of rows.slice(bas+1)){ const d=(r[cD]||"").trim(), o=(r[cD+1]||"").trim(); if(!d||/^TOPLAM/.test(normAnahtar(d))) break; l.push({ders:d,ad:o}); }
+  return l;
+}
+function projeDagitimCiz(v){
+  const dl=dersListesi(), at=v.atama||{}, say={};
+  for(const k in at) if(at[k]) say[at[k]]=(say[at[k]]||0)+1;
+  const verilen=S.ogrenciler.filter(o=>at[ogrAnahtar(o)]).length;
+  if(!S.ogrenciler.length) return `<div class="kart"><p>Önce <b>Bilgilerim</b>'den öğrenci listesini girin.</p></div>`;
+  return `<div class="kart" style="margin-top:12px;box-shadow:none;border:1px solid var(--cizgi)">
+    <h2 style="font-size:15px">Ders dağılımı <span class="sayac">${verilen} / ${S.ogrenciler.length} öğrenciye verildi</span></h2>
+    <div>${dl.map(d=>`<span class="etiket" style="font-family:inherit;font-size:13px">${esc(d.ders)}: <b>${say[d.ders]||0}</b></span>`).join(" ")}</div>
+    ${dl.length?"":`<p>Ders listesi boş. Aşağıdan okulun Excel dosyasından alın ya da Bilgilerim'e "Ders: Öğretmen" satırları yazın.</p>`}
+    <details style="margin-top:6px"><summary>Ders listesini okulun Excel dosyasından al</summary>
+      <p class="ipucu">Proje ödevi dağıtım Excel'ini seçin; ${esc(S.okul.sube)} sayfasındaki ders-öğretmen tablosu alınır ve ŞÖK listesi de güncellenir.</p>
+      <label class="btn ikincil" style="margin:6px 0 0">📄 Excel seç<input type="file" data-ders-excel accept=".xlsx" hidden></label></details>
+  </div>
+  <div class="proje-liste">${S.ogrenciler.map((o,i)=>{ const k=ogrAnahtar(o), d=at[k]||""; return `<div class="proje-satir">
+      <div class="proje-ad"><b>${i+1}. ${esc(o.ad)}</b><span>${esc(o.no)}</span></div>
+      <select data-proje="${esc(k)}"><option value="">— ders seçin —</option>${dl.map(x=>`<option value="${esc(x.ders)}" ${x.ders===d?"selected":""}>${esc(x.ders)} (${say[x.ders]||0})</option>`).join("")}</select>
+      <div class="proje-ogr">${d?"👤 "+esc(dersOgretmeni(d)):"&nbsp;"}</div></div>`; }).join("")}</div>`;
+}
+function projeDagitimBagla(el,v,yenile){
+  if(!el) return;
+  el.querySelectorAll("[data-proje]").forEach(s=>s.onchange=()=>{ v.atama=v.atama||{}; v.atama[s.dataset.proje]=s.value; const y=window.scrollY; yenile(); window.scrollTo(0,y); });
+  const ex=el.querySelector("[data-ders-excel]");
+  if(ex) ex.onchange=async e=>{ const f=e.target.files[0]; if(!f) return; e.target.value="";
+    try{ const l=await dersleriExceldenAl(await f.arrayBuffer()); if(!confirm(`${l.length} ders bulundu. Ders-öğretmen listeniz bununla değiştirilsin mi?`)) return; S.subeOgretmen=l; kaydet(); bildir(`${l.length} ders alındı`); yenile(); }
+    catch(err){ bildir("Okunamadı: "+err.message); } };
+}
+EVRAKLAR.proje={
+  ad:"Proje Ödevi", sim:"📝", acik:"Proje ödevi dağıtım listesi",
+  yatay:()=>true,
+  alanlar:[
+    {id:"verilis",ad:"Proje veriliş tarihi",tur:"date",v:bugun},
+    {id:"teslim",ad:"Proje teslim tarihi",tur:"date",v:()=>""},
+    {id:"tarih",ad:"Liste tarihi",tur:"date",v:bugun},
+    {id:"dagitim",tur:"ozel",ciz:projeDagitimCiz,bagla:projeDagitimBagla}
+  ],
+  belge(v,b){
+    const at=v.atama||{};
+    const rows=[["Sıra","Okul No","Adı Soyadı","Proje Dersi","Ders Öğretmeni","Veriliş Tarihi","Teslim Tarihi","Öğrenci İmzası"],
+      ...S.ogrenciler.map((o,i)=>{ const d=at[ogrAnahtar(o)]||""; return [String(i+1),o.no,o.ad,d,dersOgretmeni(d),d?trTarih(v.verilis):"",d&&v.teslim?trTarih(v.teslim):"",""]; })];
+    return [
+      ...B.baslik(BUYUK(`${b.YIL} eğitim-öğretim yılı ${b.OKUL||""}`), BUYUK(`${b.SUBE} sınıfı proje ödevi dağıtım listesi`)),
+      B.p(`Sınıf Rehber Öğretmeni: ${b.OGRETMEN}`,{hiza:"left",bold:true}),
+      B.tablo(rows,{baslikSatiri:true,genislik:[5,8,20,19,18,9,9,12],boyut:18}),
+      B.bosluk(),
+      B.imza([{ad:b.OGRETMEN,unvan:"Sınıf Rehber Öğretmeni"},{ust:"UYGUNDUR",alt:b.TARIH,ad:b.MUDUR||"................",unvan:"Okul Müdürü"}],2)
+    ];
+  }
+};
+
+const EVRAK_SIRASI=["gunluk","proje","sok","zumre","veli","rehberlik","oturma"];
 
 /* =========================================================
    EKRANLAR
