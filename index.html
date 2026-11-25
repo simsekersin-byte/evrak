@@ -74,6 +74,42 @@ details summary{cursor:pointer;font-weight:600;color:var(--ana2);margin-top:10px
 .proje-ad{display:flex;justify-content:space-between;gap:8px;margin-bottom:6px}
 .proje-ad span{color:var(--soluk);font-size:13px}
 .proje-ogr{font-size:13px;color:var(--iyi);font-weight:600;margin-top:4px}
+/* Ders programları */
+.prog-izgara{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:10px}
+.prog-izgara .evrak{padding:10px 8px}
+.prog-izgara .evrak b{font-size:14px}
+.prog-izgara .evrak span{font-size:12px}
+.gun-cipleri{display:flex;gap:4px;margin-bottom:10px}
+.gun-cip{flex:1;border:1px solid var(--cizgi);background:#fff;border-radius:10px;padding:6px 0;font:inherit;font-size:12px;color:var(--soluk)}
+.gun-cip b{display:block;font-size:16px;color:var(--yazi)}
+.gun-cip.bugun{border-color:var(--iyi)}
+.gun-cip.aktif{background:var(--ana);color:#fff}.gun-cip.aktif b{color:#fff}
+.ders-satir{display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:10px 0;border-bottom:1px solid var(--cizgi)}
+.ders-satir:last-child{border-bottom:0}
+.ders-satir.bos{opacity:.55}
+.ders-saat{width:52px;font-weight:700;font-size:14px;line-height:1.2}
+.ders-saat span{font-weight:400;color:var(--soluk);font-size:12px}
+.ders-icerik{flex:1;font-size:16px;font-weight:600;min-width:120px}
+.soluk{color:var(--soluk);font-weight:400}
+.yoklama{display:flex;gap:4px;width:100%;padding-left:62px}
+.yk{flex:1;border:1px solid var(--cizgi);background:#fff;border-radius:8px;padding:7px 4px;font:inherit;font-size:13px}
+.yk.sec-geldi{background:#2c7a4b;color:#fff;border-color:#2c7a4b}
+.yk.sec-gelmedi{background:#b4541a;color:#fff;border-color:#b4541a}
+.yk.sec-iptal{background:#777;color:#fff;border-color:#777}
+.prog-tablo{border-collapse:collapse;font-size:12px;min-width:100%}
+.prog-tablo th,.prog-tablo td{border:1px solid var(--cizgi);padding:4px;text-align:center;vertical-align:middle}
+.prog-tablo th.bugun{background:var(--ana);color:#fff}
+.prog-tablo td.dolu{background:#e8f1f8;font-weight:600}
+.prog-tablo td.saat{white-space:nowrap;color:var(--soluk)}
+.ozet-satir{display:flex;gap:8px}.ozet-satir>div{flex:1;text-align:center}
+.ozet-satir span{display:block;font-size:12px;color:var(--soluk)}.ozet-satir b{font-size:18px}
+.borc{color:var(--uyari)}.fazla{color:var(--ana)}.tamam{color:var(--iyi)}
+.ogr-kart{display:flex;width:100%;justify-content:space-between;align-items:center;gap:8px;text-align:left;background:#fff;border:0;border-radius:12px;box-shadow:var(--golge);padding:12px 14px;margin-bottom:8px;font:inherit;color:inherit}
+.ogr-kart span{display:block;font-size:13px;color:var(--soluk)}
+.ogr-kart>div:last-child{font-weight:700;font-size:14px;white-space:nowrap}
+.hareket{display:flex;justify-content:space-between;gap:8px;padding:8px 0;border-bottom:1px solid var(--cizgi);font-size:14px}
+.hareket.odeme b{color:var(--iyi)}
+.hareket .yk{flex:none;padding:2px 6px;font-size:11px;margin-left:4px}
 /* Kağıt önizleme */
 .kagit-kap{overflow-x:auto;background:#cfd6de;border-radius:12px;padding:12px}
 .kagit{background:#fff;color:#000;width:100%;max-width:700px;margin:0 auto;padding:28px 26px;font-family:"Times New Roman",Times,serif;font-size:14px;line-height:1.35;box-shadow:0 2px 8px rgba(0,0,0,.2)}
@@ -947,6 +983,131 @@ function panelEkrani(sube){
   document.querySelectorAll("[data-sube]").forEach(b=>b.onclick=()=>panelEkrani(b.dataset.sube));
 }
 
+/* =========================================================
+   DERS PROGRAMLARI (MEB, 5K, Özel Ders) + ÖZEL DERS YOKLAMA / ÖDEME
+   Programlar telefonda saklanır, eşitlemeyle tablete geçer.
+   ========================================================= */
+const GUN_KISA=["Pzt","Sal","Çar","Per","Cum","Cmt","Paz"], GUN_UZUN=["Pazartesi","Salı","Çarşamba","Perşembe","Cuma","Cumartesi","Pazar"];
+const PROGRAM_TURLERI={meb:{ad:"MEB Programı",sim:"🏫"},kurs:{ad:"5K Programı",sim:"✏️"},ozel:{ad:"Özel Ders",sim:"👤"}};
+const tl=n=>(Math.round((+n||0)*100)/100).toLocaleString("tr-TR")+" ₺";
+const isoTarih=d=>d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+const gunNo=d=>(d.getDay()+6)%7;
+function haftaBasi(d){ const x=new Date(d.getFullYear(),d.getMonth(),d.getDate()); x.setDate(x.getDate()-gunNo(x)); return x; }
+function prog(k){ S.programlar=S.programlar||{}; return S.programlar[k]; }
+function ozelVeri(){ S.ozel=S.ozel||{}; const o=S.ozel; o.ucret=o.ucret||{}; o.yoklama=o.yoklama||{}; o.odemeler=o.odemeler||[]; o.ekstra=o.ekstra||{}; return o; }
+function gunDersleri(p,g){ return p.saatler.map((s,i)=>({i,s,t:(p.hucre[g+"|"+i]||"").trim()})).filter(x=>x.t); }
+function sonrakiDers(p){
+  const n=new Date(), g=gunNo(n), dk=n.getHours()*60+n.getMinutes(), m=t=>{const [a,b]=t.split(":").map(Number);return a*60+b;};
+  const bugun=gunDersleri(p,g).find(x=>m(x.s.bit)>dk);
+  if(bugun) return `Bugün ${bugun.s.bas} · ${bugun.t.replace(/\n/g," ")}`;
+  for(let k=1;k<=7;k++){ const gg=(g+k)%7, d=gunDersleri(p,gg)[0]; if(d) return `${GUN_UZUN[gg]} ${d.s.bas} · ${d.t.replace(/\n/g," ")}`; }
+  return "Program boş";
+}
+function ozelOgrenciler(){
+  const p=prog("ozel"), o=ozelVeri(), set=new Set();
+  if(p) Object.values(p.hucre).forEach(t=>t&&set.add(t.trim()));
+  Object.keys(o.ucret).forEach(a=>set.add(a));
+  Object.values(o.yoklama).forEach(y=>y.ad&&set.add(y.ad));
+  o.odemeler.forEach(x=>set.add(x.ad));
+  return [...set].filter(Boolean).sort((a,b)=>a.localeCompare(b,"tr"));
+}
+function ogrHesap(ad){
+  const o=ozelVeri(); const ders=Object.entries(o.yoklama).filter(([k,y])=>y.ad===ad&&y.durum==="geldi");
+  const borc=ders.reduce((t,[k,y])=>t+(+y.ucret||0),0), odenen=o.odemeler.filter(x=>x.ad===ad).reduce((t,x)=>t+(+x.tutar||0),0);
+  return {ders:ders.length,borc,odenen,kalan:borc-odenen};
+}
+let progDurum={};
+function programEkrani(k,secenek={}){
+  const p=prog(k), tur=PROGRAM_TURLERI[k];
+  if(!p){ ekran(tur.ad,`<div class="kart"><h2>${tur.ad}</h2><p>Bu program henüz yüklenmedi. Size gönderdiğim program bağlantısını açın ya da aşağıdan boş bir program oluşturun.</p>
+    <div class="butonlar"><button class="btn" id="bosProg">Boş program oluştur</button></div></div>`,{geri:anaSayfa});
+    $("#bosProg").onclick=()=>{ const saat=prompt("Ders saatlerini virgülle yazın (ör. 08:00-08:40, 08:50-09:30):","08:00-08:40, 08:50-09:30"); if(!saat) return;
+      S.programlar=S.programlar||{}; S.programlar[k]={ad:tur.ad,saatler:saat.split(",").map(x=>{const [bas,bit]=x.trim().split("-");return {bas:(bas||"").trim(),bit:(bit||"").trim()};}),hucre:{},not:""}; kaydet(); programEkrani(k); };
+    return;
+  }
+  const d=progDurum[k]=Object.assign({gorunum:"gun",tarih:isoTarih(new Date()),sekme:"program"},progDurum[k],secenek);
+  const sec=new Date(d.tarih+"T12:00"), hb=haftaBasi(sec), g=gunNo(sec), bugunIso=isoTarih(new Date());
+  const ozel=k==="ozel", o=ozel?ozelVeri():null;
+  const sekme=ozel?`<div class="sekmeler"><button class="sekme ${d.sekme==="program"?"aktif":""}" data-sk="program">Program ve yoklama</button><button class="sekme ${d.sekme==="odeme"?"aktif":""}" data-sk="odeme">Öğrenciler ve ödeme</button></div>`:"";
+  if(ozel&&d.sekme==="odeme") return ozelOdemeEkrani(k,sekme);
+  const gunler=[...Array(7)].map((_,i)=>{ const x=new Date(hb); x.setDate(x.getDate()+i); return x; });
+  const gorunumBtn=`<div class="butonlar" style="margin:0 0 10px"><button class="btn ${d.gorunum==="gun"?"":"ikincil"}" data-gr="gun">Gün</button><button class="btn ${d.gorunum==="hafta"?"":"ikincil"}" data-gr="hafta">Tüm hafta</button></div>`;
+  let govde="";
+  if(d.gorunum==="hafta"){
+    const kullanilan=[0,1,2,3,4,5,6].filter(i=>i<6||p.saatler.some((_,j)=>p.hucre[i+"|"+j]));
+    govde=`<div class="kart" style="padding:8px;overflow-x:auto"><table class="prog-tablo"><tr><th>Saat</th>${kullanilan.map(i=>`<th class="${isoTarih(gunler[i])===bugunIso?"bugun":""}">${GUN_KISA[i]}</th>`).join("")}</tr>
+      ${p.saatler.map((s,j)=>`<tr><td class="saat">${esc(s.bas)}<br>${esc(s.bit)}</td>${kullanilan.map(i=>{const t=p.hucre[i+"|"+j]||""; return `<td class="${t?"dolu":""}" data-h="${i}|${j}">${esc(t).replace(/\n/g,"<br>")}</td>`;}).join("")}</tr>`).join("")}</table></div>
+      <p class="ipucu">Değiştirmek için bir kutuya dokunun.</p>`;
+  }else{
+    const dersler=p.saatler.map((s,j)=>({j,s,t:(p.hucre[g+"|"+j]||"").trim()}));
+    const ekstralar=ozel?Object.entries(o.ekstra).filter(([key])=>key.startsWith(d.tarih+"|")):[];
+    const satir=x=>{ const yk=d.tarih+"|"+g+"|"+x.j, y=ozel&&x.t?o.yoklama[yk]:null;
+      return `<div class="ders-satir ${x.t?"":"bos"}"><div class="ders-saat">${esc(x.s.bas)}<br><span>${esc(x.s.bit)}</span></div>
+        <div class="ders-icerik" data-h="${g}|${x.j}">${x.t?esc(x.t).replace(/\n/g," · "):`<span class="soluk">boş</span>`}</div>
+        ${ozel&&x.t?`<div class="yoklama">${["geldi","gelmedi","iptal"].map(du=>`<button class="yk ${y&&y.durum===du?"sec-"+du:""}" data-yk="${yk}" data-ad="${esc(x.t)}" data-du="${du}">${{geldi:"✓ Geldi",gelmedi:"✗ Gelmedi",iptal:"İptal"}[du]}</button>`).join("")}</div>`:""}</div>`; };
+    govde=`<div class="hafta-nav" style="margin-bottom:8px"><button class="nav-ok" id="oncekiH">‹</button><div class="hafta-bilgi"><b>${GUN_UZUN[g]}</b><span>${trTarih(d.tarih)}${d.tarih===bugunIso?" · <em>bugün</em>":""}</span></div><button class="nav-ok" id="sonrakiH">›</button></div>
+      <div class="gun-cipleri">${gunler.map((x,i)=>`<button class="gun-cip ${i===g?"aktif":""} ${isoTarih(x)===bugunIso?"bugun":""}" data-tr="${isoTarih(x)}">${GUN_KISA[i]}<b>${x.getDate()}</b></button>`).join("")}</div>
+      <div class="kart" style="padding:6px 12px">${(ozel?dersler.filter(x=>x.t):dersler.filter(x=>x.t||dersler.some(y=>y.t))).map(satir).join("")||`<p style="padding:12px 0">Bu gün ders yok.</p>`}
+      ${ekstralar.map(([key,e])=>{ const y=o.yoklama[key]; return `<div class="ders-satir"><div class="ders-saat">${esc(e.saat||"")}<br><span>ekstra</span></div><div class="ders-icerik">${esc(e.ad)}</div><div class="yoklama">${["geldi","gelmedi","iptal"].map(du=>`<button class="yk ${y&&y.durum===du?"sec-"+du:""}" data-yk="${key}" data-ad="${esc(e.ad)}" data-du="${du}">${{geldi:"✓ Geldi",gelmedi:"✗ Gelmedi",iptal:"İptal"}[du]}</button>`).join("")}<button class="yk" data-ekstra-sil="${key}">Sil</button></div></div>`; }).join("")}
+      </div>
+      ${ozel?`<div class="butonlar"><button class="btn ikincil" id="ekstraEkle">+ Ekstra / telafi dersi</button></div>`:`<p class="ipucu">Değiştirmek için bir derse dokunun.</p>`}`;
+  }
+  ekran(tur.ad,`${sekme}${gorunumBtn}${govde}${p.not?`<p class="ipucu">📌 ${esc(p.not)}</p>`:""}`,{geri:anaSayfa});
+  const yenile=(x={})=>{ const y=window.scrollY; programEkrani(k,x); window.scrollTo(0,y); };
+  document.querySelectorAll("[data-sk]").forEach(b=>b.onclick=()=>programEkrani(k,{sekme:b.dataset.sk}));
+  document.querySelectorAll("[data-gr]").forEach(b=>b.onclick=()=>programEkrani(k,{gorunum:b.dataset.gr}));
+  document.querySelectorAll("[data-tr]").forEach(b=>b.onclick=()=>programEkrani(k,{tarih:b.dataset.tr}));
+  const kay=n=>{ const x=new Date(d.tarih+"T12:00"); x.setDate(x.getDate()+n); programEkrani(k,{tarih:isoTarih(x)}); };
+  const oh=$("#oncekiH"); if(oh){ oh.onclick=()=>kay(-1); $("#sonrakiH").onclick=()=>kay(1); }
+  document.querySelectorAll("[data-h]").forEach(c=>c.onclick=()=>{ const key=c.dataset.h, eski=p.hucre[key]||""; const yeni=prompt(ozel?"Öğrencinin adı (boş bırakırsanız ders silinir):":"Ders (boş bırakırsanız silinir):",eski); if(yeni===null) return; if(yeni.trim()) p.hucre[key]=yeni.trim(); else delete p.hucre[key]; kaydet(); yenile(); });
+  document.querySelectorAll("[data-yk]").forEach(b=>b.onclick=()=>{ const key=b.dataset.yk, ad=b.dataset.ad, du=b.dataset.du, mev=o.yoklama[key];
+    if(mev&&mev.durum===du) delete o.yoklama[key]; else o.yoklama[key]={ad,durum:du,ucret:+o.ucret[ad]||0};
+    kaydet(); yenile(); });
+  document.querySelectorAll("[data-ekstra-sil]").forEach(b=>b.onclick=()=>{ if(!confirm("Ekstra ders silinsin mi?")) return; delete o.ekstra[b.dataset.ekstraSil]; delete o.yoklama[b.dataset.ekstraSil]; kaydet(); yenile(); });
+  const ee=$("#ekstraEkle"); if(ee) ee.onclick=()=>{ const ad=prompt("Öğrencinin adı:"); if(!ad||!ad.trim()) return; const saat=prompt("Saat (ör. 20:00):","")||""; const key=d.tarih+"|x|"+Date.now(); o.ekstra[key]={ad:ad.trim(),saat}; kaydet(); yenile(); };
+}
+function ozelOdemeEkrani(k,sekme){
+  const o=ozelVeri(), liste=ozelOgrenciler();
+  const top=liste.reduce((t,a)=>{const h=ogrHesap(a); t.kalan+=h.kalan; t.odenen+=h.odenen; return t;},{kalan:0,odenen:0});
+  ekran("Özel Ders",`${sekme}
+    <div class="kart"><div class="ozet-satir"><div><span>Toplam alacak</span><b class="${top.kalan>0?"borc":""}">${tl(top.kalan)}</b></div><div><span>Tahsil edilen</span><b>${tl(top.odenen)}</b></div></div></div>
+    ${liste.map(a=>{ const h=ogrHesap(a), u=o.ucret[a]; return `<button class="ogr-kart" data-ogr="${esc(a)}"><div><b>${esc(a)}</b><span>${u?tl(u)+" / ders":"ücret girilmedi"} · ${h.ders} ders işlendi</span></div><div class="${h.kalan>0?"borc":h.kalan<0?"fazla":h.ders?"tamam":"soluk"}">${h.kalan>0?tl(h.kalan)+" borç":h.kalan<0?tl(-h.kalan)+" avans":h.ders?"✓ ödendi":"—"}</div></button>`; }).join("")||`<div class="kart"><p>Henüz öğrenci yok.</p></div>`}
+    <div class="butonlar"><button class="btn ikincil" id="yeniOgr">+ Öğrenci ekle</button></div>`,{geri:anaSayfa});
+  document.querySelectorAll("[data-sk]").forEach(b=>b.onclick=()=>programEkrani(k,{sekme:b.dataset.sk}));
+  document.querySelectorAll("[data-ogr]").forEach(b=>b.onclick=()=>ozelOgrenciEkrani(b.dataset.ogr));
+  $("#yeniOgr").onclick=()=>{ const ad=prompt("Öğrencinin adı:"); if(!ad||!ad.trim()) return; const u=prompt("Ders başı ücret (₺):",""); o.ucret[ad.trim()]=+String(u||"0").replace(",",".")||0; kaydet(); ozelOdemeEkrani(k,sekme); };
+}
+function ozelOgrenciEkrani(ad){
+  const o=ozelVeri(), h=ogrHesap(ad);
+  const hareket=[...Object.entries(o.yoklama).filter(([key,y])=>y.ad===ad).map(([key,y])=>({tarih:key.split("|")[0],tur:"ders",y,key})),
+    ...o.odemeler.map((x,i)=>({...x,i})).filter(x=>x.ad===ad).map(x=>({tarih:x.tarih,tur:"odeme",x}))].sort((a,b)=>b.tarih.localeCompare(a.tarih));
+  ekran(ad,`<div class="kart"><div class="ozet-satir"><div><span>Kalan</span><b class="${h.kalan>0?"borc":""}">${tl(h.kalan)}</b></div><div><span>İşlenen ders</span><b>${h.ders}</b></div><div><span>Ödenen</span><b>${tl(h.odenen)}</b></div></div>
+      <label>Ders başı ücret (₺)</label><input id="ucret" type="number" inputmode="decimal" value="${o.ucret[ad]??""}">
+      <p class="ipucu">Yeni ücret bundan sonra işaretlenen derslere uygulanır.</p>
+      <div class="butonlar"><button class="btn" id="odemeEkle">💰 Ödeme al</button></div></div>
+    <div class="kart"><h2>Hareketler</h2>${hareket.map(x=>x.tur==="ders"
+      ?`<div class="hareket"><span>${trTarih(x.tarih)} · ders ${x.y.durum==="geldi"?"✓":x.y.durum==="gelmedi"?"✗ gelmedi":"iptal"}</span><b>${x.y.durum==="geldi"?"+"+tl(x.y.ucret):"—"}</b></div>`
+      :`<div class="hareket odeme"><span>${trTarih(x.tarih)} · ödeme${x.x.not?" ("+esc(x.x.not)+")":""}</span><b>−${tl(x.x.tutar)} <button class="yk" data-sil="${x.x.i}">Sil</button></b></div>`).join("")||"<p>Henüz hareket yok.</p>"}</div>
+    <details><summary>Öğrenciyi kaldır</summary><p class="ipucu">Ücret bilgisi silinir; geçmiş dersler ve ödemeler kalır.</p><button class="btn tehlike" id="ogrSil">Kaldır</button></details>`,{geri:()=>programEkrani("ozel",{sekme:"odeme"})});
+  $("#ucret").onchange=e=>{ o.ucret[ad]=+String(e.target.value).replace(",",".")||0; kaydet(); bildir("Ücret kaydedildi."); };
+  $("#odemeEkle").onclick=()=>{ const t=prompt(`${ad} için alınan tutar (₺):`,h.kalan>0?String(h.kalan):""); if(!t) return; const tutar=+String(t).replace(",","."); if(!(tutar>0)) return; const not=prompt("Not (isteğe bağlı, ör. nakit / havale):","")||""; o.odemeler.push({ad,tarih:isoTarih(new Date()),tutar,not}); kaydet(); ozelOgrenciEkrani(ad); };
+  document.querySelectorAll("[data-sil]").forEach(b=>b.onclick=()=>{ if(!confirm("Ödeme silinsin mi?")) return; o.odemeler.splice(+b.dataset.sil,1); kaydet(); ozelOgrenciEkrani(ad); });
+  $("#ogrSil").onclick=()=>{ if(!confirm(ad+" kaldırılsın mı?")) return; delete o.ucret[ad]; kaydet(); programEkrani("ozel",{sekme:"odeme"}); };
+}
+/* Gizli bağlantıyla program aktarma: "#paket=..." (adres çubuğundaki bu kısım sunucuya gitmez) */
+function paketAc(){
+  const m=location.hash.match(/^#paket=(.+)$/); if(!m) return false;
+  history.replaceState(null,"",location.pathname);
+  try{
+    const b=atob(m[1].replace(/-/g,"+").replace(/_/g,"/")), j=JSON.parse(new TextDecoder().decode(Uint8Array.from(b,c=>c.charCodeAt(0))));
+    const adlar=Object.keys(j.programlar||{}).map(x=>PROGRAM_TURLERI[x]?.ad||x).join(", ");
+    if(!confirm(`Şu programlar yüklensin mi?\n${adlar}\n(Aynı adlı mevcut programların yerine geçer.)`)) return true;
+    S.programlar=Object.assign(S.programlar||{},j.programlar); if(j.ucret) Object.assign(ozelVeri().ucret,j.ucret);
+    kaydet(); bildir("Programlar yüklendi."); anaSayfa();
+  }catch(e){ bildir("Bağlantı okunamadı."); }
+  return true;
+}
+
 Object.assign(EVRAKLAR, PLAN_EVRAKLARI);
 /* =========================================================
    PROJE ÖDEVİ DAĞITIM LİSTESİ (sınıf rehber öğretmeni için)
@@ -1037,11 +1198,13 @@ function anaSayfa(){
   ekran("Evrak Defterim",`
     <div class="kart"><h2>${esc(o.okul||"Okulunuz")}</h2><p>${esc(o.ogretmen)} · ${esc(o.brans)} · ${esc(o.sube)} rehber öğretmeni · ${S.ogrenciler.length} öğrenci · ${esc(o.yil)}</p></div>
     <button class="evrak panel-giris" id="panelGit"><span class="sim">📖</span><b>Haftalık Plan</b><span>${sinifSecenek().map(x=>{const p=planGetir(x); if(!p) return `${esc(x)}: plan yüklenmedi`; const r=p.satirlar[buHafta(p)]; return `${esc(x)}: ${esc((satirDeger(p,r,"konu")||satirDeger(p,r,"tema")||r.h.find(Boolean)||"").split("\n")[0])}`;}).join("<br>")}</span></button>
+    <div class="prog-izgara">${Object.entries(PROGRAM_TURLERI).map(([k,t])=>{ const p=prog(k); return `<button class="evrak" data-prog="${k}"><span class="sim">${t.sim}</span><b>${t.ad}</b><span>${p?esc(sonrakiDers(p)):"yüklenmedi"}</span></button>`; }).join("")}</div>
     <div class="izgara">${EVRAK_SIRASI.map(id=>[id,EVRAKLAR[id]]).map(([id,e])=>`<button class="evrak" data-ev="${id}"><span class="sim">${e.sim}</span><b>${e.ad}</b><span>${e.acik}</span></button>`).join("")}</div>
     <div class="butonlar"><button class="btn ikincil" id="ayar">⚙️ Bilgilerim</button><button class="btn ikincil" id="yedek">💾 Yedek ve eşitleme</button></div>
     <p class="ipucu" style="text-align:center;margin-top:16px">Tüm bilgiler yalnızca bu telefonda saklanır.</p>`);
   document.querySelectorAll("[data-ev]").forEach(b=>b.onclick=()=>evrakForm(b.dataset.ev));
   $("#panelGit").onclick=()=>panelEkrani();
+  document.querySelectorAll("[data-prog]").forEach(b=>b.onclick=()=>programEkrani(b.dataset.prog));
   $("#ayar").onclick=()=>kurulum(false); $("#yedek").onclick=yedekEkrani;
 }
 
@@ -1240,6 +1403,8 @@ $("#yukleBtn").onclick=async()=>{ if(!kurulumIstegi) return; kurulumIstegi.promp
 window.addEventListener("appinstalled",()=>{ $("#yukleBtn").hidden=true; bildir("Uygulama ana ekrana eklendi."); });
 
 anaSayfa();
+paketAc();
+window.addEventListener("hashchange",()=>{ if(!paketAc()){ const m=location.hash.match(/^#esitle=(.+)$/); if(m){ history.replaceState(null,"",location.pathname); esitlemeyiBagla(decodeURIComponent(m[1])); } } });
 /* ---------- Otomatik eşitleme (kendi Google Drive'ınız üzerinden) ---------- */
 const ESITLE_ANAHTAR="evrakDefterim.esitle";
 const esitleAdres=()=>{ try{ return localStorage.getItem(ESITLE_ANAHTAR)||""; }catch(_){ return ""; } };
