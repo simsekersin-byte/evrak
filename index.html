@@ -1098,7 +1098,7 @@ function kursOdemeEkrani(sekme){
   const varsayilan=aylar.find(m=>m<buAy&&ay[m]*v.ucret>odenen(m))||aylar.find(m=>m<buAy)||buAy;
   ekran("5K Programı",`${sekme}
     <div class="kart"><div class="ozet-satir"><div><span>Ders ücretleri</span><b>${tl(top.hak)}</b></div><div><span>Ödenen</span><b class="tamam">${tl(top.od)}</b></div><div><span>Kalan</span><b class="${top.hak-top.od>0?"borc":""}">${tl(top.hak-top.od)}</b></div></div></div>
-    ${aylar.map(m=>{ const h=ay[m]*v.ucret, o=odenen(m), k=h-o; return `<div class="ogr-kart" style="cursor:default"><div><b>${ayAdi(m)}${m===buAy?" · devam ediyor":""}</b><span>${ay[m]} ders × ${tl(v.ucret)} = ${tl(h)}</span><span>Ödenen: <b class="tamam">${tl(o)}</b> · Kalan: <b class="${k>0?"borc":""}">${tl(Math.max(0,k))}</b>${k<0?" (fazla "+tl(-k)+")":""}</span></div><div class="${k>0?"borc":"tamam"}">${k>0?tl(k):h?"✓":"—"}</div></div>`; }).join("")||"<p>Henüz ders yok.</p>"}
+    ${aylar.map(m=>{ const h=ay[m]*v.ucret, o=odenen(m), k=h-o; return `<div class="ogr-kart" style="cursor:default"><div><b>${ayAdi(m)}${m===buAy?" · devam ediyor":""}</b><span>${ay[m]} ders × ${tl(v.ucret)} = ${tl(h)}</span><span>Ödenen: <b class="tamam">${tl(o)}</b> · Kalan: <b class="${k>0?"borc":""}">${tl(Math.max(0,k))}</b>${k<0?" (fazla "+tl(-k)+")":""}</span></div><div style="text-align:right"><div class="${k>0?"borc":"tamam"}">${k>0?tl(k):h?"✓":"—"}</div>${ay[m]?`<button class="yk" data-kpdf="${m}" style="margin-top:6px">📄 PDF</button>`:""}</div></div>`; }).join("")||"<p>Henüz ders yok.</p>"}
     <div class="kart"><h2>💰 Ödeme al</h2>
       <label>Hangi ayın ödemesi</label><select id="kDonem">${[...new Set([buAy,...aylar])].sort().reverse().map(m=>`<option value="${m}" ${m===varsayilan?"selected":""}>${ayAdi(m)}</option>`).join("")}</select>
       <label>Tutar (₺)</label><input id="kTutar" type="number" inputmode="decimal">
@@ -1110,6 +1110,7 @@ function kursOdemeEkrani(sekme){
       <label>Kursun başladığı tarih</label><input id="kBas" type="date" value="${v.bas}">
       <p class="ipucu">Dersler programdan bu tarihten itibaren kendiliğinden sayılır. Yapılmayan dersleri Program sekmesinde ilgili günde "İptal" ile işaretleyin.</p></details>`,{geri:anaSayfa});
   document.querySelectorAll("[data-sk]").forEach(b=>b.onclick=()=>programEkrani("kurs",{sekme:b.dataset.sk}));
+  document.querySelectorAll("[data-kpdf]").forEach(b=>b.onclick=()=>kursDokumPaylas(b.dataset.kpdf));
   $("#kOde").onclick=()=>{ const tutar=+String($("#kTutar").value).replace(",","."); if(!(tutar>0)) return bildir("Tutarı yazın."); v.odemeler.push({donem:$("#kDonem").value,tarih:$("#kTarih").value||isoTarih(new Date()),tutar,not:""}); kaydet(); bildir("Ödeme kaydedildi."); kursOdemeEkrani(sekme); };
   document.querySelectorAll("[data-kosil]").forEach(b=>b.onclick=()=>{ if(!confirm("Ödeme silinsin mi?")) return; v.odemeler.splice(+b.dataset.kosil,1); kaydet(); kursOdemeEkrani(sekme); });
   $("#kUcret").onchange=e=>{ v.ucret=+String(e.target.value).replace(",",".")||0; kaydet(); kursOdemeEkrani(sekme); };
@@ -1230,6 +1231,52 @@ async function hesapOzetiPdf(ad,donem){
   sayfalar.forEach((s,i)=>{ const gg=s.getContext("2d"); gg.font=`20px Roboto, Arial, sans-serif`; gg.fillStyle="#888"; gg.fillText(`Düzenlenme: ${trTarih(isoTarih(new Date()))}${sayfalar.length>1?`   ·   Sayfa ${i+1}/${sayfalar.length}`:""}`,M,H-60); });
   const veri=await Promise.all(sayfalar.map(s=>new Promise(r=>s.toBlob(async b=>r({veri:new Uint8Array(await b.arrayBuffer()),w:W,h:H}),"image/jpeg",0.9))));
   return jpegPdf(veri);
+}
+function kursGunleri(ym){ // o ayın ders yapılan günleri
+  const v=kursVeri(), p=prog("kurs"), gunler=[], bugun=isoTarih(new Date());
+  const x=new Date(ym+"-01T12:00"); if(v.bas>isoTarih(x)) x.setTime(new Date(v.bas+"T12:00").getTime());
+  while(isoTarih(x).slice(0,7)===ym&&isoTarih(x)<=bugun){ const iso=isoTarih(x), g=gunNo(x), sinif={}; let adet=0, iptal=0;
+    if(p) p.saatler.forEach((_,j)=>{ const t=(p.hucre[g+"|"+j]||"").trim(); if(!t) return; if(v.iptal[iso+"|"+g+"|"+j]){ iptal++; return; } adet++; sinif[t]=(sinif[t]||0)+1; });
+    Object.entries(v.ekstra).filter(([key])=>key.startsWith(iso+"|")).forEach(([_,e])=>{ adet+=+e.adet||0; const t=(e.not||"Ekstra ders")+" (ekstra)"; sinif[t]=(sinif[t]||0)+(+e.adet||0); });
+    if(adet||iptal) gunler.push({iso,g,adet,iptal,sinif}); x.setDate(x.getDate()+1); }
+  return gunler; }
+async function kursDokumPdf(ym){
+  const v=kursVeri(), gunler=kursGunleri(ym), W=1240, H=1754, M=90;
+  const adet=gunler.reduce((t,x)=>t+x.adet,0), hak=adet*v.ucret, ode=v.odemeler.filter(o=>o.donem===ym), odTop=ode.reduce((t,o)=>t+(+o.tutar||0),0), kalan=hak-odTop;
+  const [yy,mm]=ym.split("-"), sonGun=new Date(+yy,+mm,1);
+  const sayfalar=[]; let c,g,y;
+  const yeniSayfa=()=>{ c=document.createElement("canvas"); c.width=W; c.height=H; g=c.getContext("2d"); g.fillStyle="#fff"; g.fillRect(0,0,W,H); y=M; sayfalar.push(c); };
+  const yaz=(t,x,yy,{b,s=26,r,renk}={})=>{ g.font=`${b?"700 ":""}${s}px Roboto, "Segoe UI", Arial, sans-serif`; g.fillStyle=renk||"#111"; g.textAlign=r?"right":"left"; g.fillText(t,x,yy); g.textAlign="left"; };
+  const kisalt=(t,max)=>{ if(g.measureText(t).width<=max) return t; while(t.length>1&&g.measureText(t+"…").width>max) t=t.slice(0,-1); return t+"…"; };
+  yeniSayfa(); g.fillStyle="#1f5f8b"; g.fillRect(0,0,W,14);
+  yaz("DERS VE ÖDEME DÖKÜMÜ",M,y+30,{b:true,s:40}); y+=80;
+  yaz(`Kurum: ${((prog("kurs")||{}).not||"5K").split("·")[0].trim()}`,M,y,{s:26}); y+=40;
+  yaz(`Öğretmen: ${S.okul.ogretmen}${S.okul.brans?" ("+S.okul.brans+")":""}`,M,y,{s:26}); y+=40;
+  yaz(`Dönem: ${ayAdi(ym)} (01.${mm}.${yy} – ${trTarih(isoTarih(sonGun))})`,M,y,{s:26}); y+=40;
+  yaz(`Ders başı ücret: ${tl(v.ucret)}`,M,y,{s:26}); y+=60;
+  const baslik=()=>{ g.fillStyle="#e8eef4"; g.fillRect(M,y-34,W-2*M,50); yaz("Tarih",M+16,y,{b:true}); yaz("Gün",M+200,y,{b:true}); yaz("Sınıf / ders",M+380,y,{b:true}); yaz("Ders",W-M-16,y,{b:true,r:true}); y+=56; };
+  baslik();
+  gunler.forEach(x=>{ if(y>H-300){ yeniSayfa(); baslik(); }
+    yaz(trTarih(x.iso),M+16,y); yaz(GUN_UZUN[x.g],M+200,y);
+    g.font=`24px Roboto, Arial, sans-serif`; const ac=Object.entries(x.sinif).map(([t,n])=>`${t} ×${n}`).join(", ")+(x.iptal?` · ${x.iptal} iptal`:"");
+    yaz(kisalt(ac||"—",W-2*M-480),M+380,y,{s:24}); yaz(String(x.adet),W-M-16,y,{r:true});
+    g.strokeStyle="#ddd"; g.beginPath(); g.moveTo(M,y+16); g.lineTo(W-M,y+16); g.stroke(); y+=48; });
+  if(!gunler.length){ yaz("Bu ayda ders yok.",M+16,y); y+=48; }
+  if(ode.length){ if(y>H-360){ yeniSayfa(); } y+=20; yaz("Alınan ödemeler",M,y,{b:true,s:28}); y+=44;
+    ode.forEach(o=>{ if(y>H-300){ yeniSayfa(); } yaz(trTarih(o.tarih),M+16,y); if(o.not) yaz(o.not,M+260,y); yaz(tl(o.tutar),W-M-16,y,{r:true,renk:"#2c7a4b"}); y+=44; }); }
+  if(y>H-320) yeniSayfa();
+  y+=20; g.fillStyle="#f6f8fa"; g.fillRect(M,y,W-2*M,210); y+=50;
+  yaz(`Toplam ders: ${adet}`,M+24,y,{s:28}); yaz(`${adet} × ${tl(v.ucret)} = ${tl(hak)}`,W-M-24,y,{s:28,r:true}); y+=50;
+  yaz(`Ödenen: ${tl(odTop)}`,W-M-24,y,{s:28,r:true}); y+=60;
+  yaz(kalan>0?"Kalan:":kalan<0?"Fazla ödeme:":"Ödeme tamam",M+24,y,{b:true,s:34}); yaz(kalan?tl(Math.abs(kalan)):"",W-M-24,y,{b:true,s:34,r:true,renk:kalan>0?"#b4541a":"#2c7a4b"});
+  sayfalar.forEach((s,i)=>{ const gg=s.getContext("2d"); gg.font=`20px Roboto, Arial, sans-serif`; gg.fillStyle="#888"; gg.textAlign="left"; gg.fillText(`Düzenlenme: ${trTarih(isoTarih(new Date()))}${sayfalar.length>1?`   ·   Sayfa ${i+1}/${sayfalar.length}`:""}`,M,H-60); });
+  const veri=await Promise.all(sayfalar.map(s=>new Promise(r=>s.toBlob(async b=>r({veri:new Uint8Array(await b.arrayBuffer()),w:W,h:H}),"image/jpeg",0.9))));
+  return jpegPdf(veri);
+}
+async function kursDokumPaylas(ym){
+  try{ const pdf=await kursDokumPdf(ym), adi=dosyaAdi(`5K_Ders_Dokumu_${ayAdi(ym)}`)+".pdf", f=new File([pdf],adi,{type:"application/pdf"});
+    if(navigator.canShare&&navigator.canShare({files:[f]})){ try{ await navigator.share({files:[f],title:`${ayAdi(ym)} ders dökümü`}); }catch(_){} } else indir(f,adi);
+  }catch(e){ console.error(e); bildir("PDF oluşturulamadı: "+e.message); }
 }
 async function hesapOzetiPaylas(ad,donem){
   try{
