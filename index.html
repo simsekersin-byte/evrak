@@ -1005,7 +1005,8 @@ function sonrakiDers(p){
   for(let k=1;k<=7;k++){ const gg=(g+k)%7, d=gunDersleri(p,gg)[0]; if(d) return `${GUN_UZUN[gg]} ${d.s.bas} · ${d.t.replace(/\n/g," ")}`; }
   return "Program boş";
 }
-function dersUcret(y){ return +y.ucret||+ozelVeri().ucret[y.ad]||0; }
+const GELIS_DERS=2; // her geliş 2 ders
+function dersUcret(y){ return GELIS_DERS*(+y.ucret||+ozelVeri().ucret[y.ad]||0); }
 function ozelOgrenciler(){
   const p=prog("ozel"), o=ozelVeri(), set=new Set();
   if(p) Object.values(p.hucre).forEach(t=>t&&set.add(t.trim()));
@@ -1075,7 +1076,7 @@ function ozelOdemeEkrani(k,sekme){
   const top=liste.reduce((t,a)=>{const h=ogrHesap(a); t.kalan+=h.kalan; t.odenen+=h.odenen; t.borc+=h.borc; return t;},{kalan:0,odenen:0,borc:0});
   ekran("Özel Ders",`${sekme}
     <div class="kart"><div class="ozet-satir"><div><span>Ders ücretleri</span><b>${tl(top.borc)}</b></div><div><span>Ödenen</span><b class="tamam">${tl(top.odenen)}</b></div><div><span>Kalan</span><b class="${top.kalan>0?"borc":""}">${tl(top.kalan)}</b></div></div></div>
-    ${liste.map(a=>{ const h=ogrHesap(a), u=o.ucret[a]; return `<button class="ogr-kart" data-ogr="${esc(a)}"><div><b>${esc(a)}</b><span>${u?tl(u)+" / ders":"ücret girilmedi"} · ${h.ders} ders işlendi</span><span>Ödenen: <b class="tamam">${tl(h.odenen)}</b> · Kalan: <b class="${h.kalan>0?"borc":""}">${tl(Math.max(0,h.kalan))}</b></span></div><div class="${h.kalan>0?"borc":h.kalan<0?"fazla":h.ders?"tamam":"soluk"}">${h.kalan>0?tl(h.kalan)+" borç":h.kalan<0?tl(-h.kalan)+" avans":h.ders?"✓ ödendi":"—"}</div></button>`; }).join("")||`<div class="kart"><p>Henüz öğrenci yok.</p></div>`}
+    ${liste.map(a=>{ const h=ogrHesap(a), u=o.ucret[a]; return `<button class="ogr-kart" data-ogr="${esc(a)}"><div><b>${esc(a)}</b><span>${u?tl(u)+" / ders":"ücret girilmedi"} · ${h.ders} geliş (${h.ders*GELIS_DERS} ders)</span><span>Ödenen: <b class="tamam">${tl(h.odenen)}</b> · Kalan: <b class="${h.kalan>0?"borc":""}">${tl(Math.max(0,h.kalan))}</b></span></div><div class="${h.kalan>0?"borc":h.kalan<0?"fazla":h.ders?"tamam":"soluk"}">${h.kalan>0?tl(h.kalan)+" borç":h.kalan<0?tl(-h.kalan)+" avans":h.ders?"✓ ödendi":"—"}</div></button>`; }).join("")||`<div class="kart"><p>Henüz öğrenci yok.</p></div>`}
     <div class="butonlar"><button class="btn ikincil" id="yeniOgr">+ Öğrenci ekle</button></div>`,{geri:anaSayfa});
   document.querySelectorAll("[data-sk]").forEach(b=>b.onclick=()=>programEkrani(k,{sekme:b.dataset.sk}));
   document.querySelectorAll("[data-ogr]").forEach(b=>b.onclick=()=>ozelOgrenciEkrani(b.dataset.ogr));
@@ -1085,9 +1086,9 @@ function ozelOgrenciEkrani(ad){
   const o=ozelVeri(), h=ogrHesap(ad);
   const hareket=[...Object.entries(o.yoklama).filter(([key,y])=>y.ad===ad).map(([key,y])=>({tarih:key.split("|")[0],tur:"ders",y,key})),
     ...o.odemeler.map((x,i)=>({...x,i})).filter(x=>x.ad===ad).map(x=>({tarih:x.tarih,tur:"odeme",x}))].sort((a,b)=>b.tarih.localeCompare(a.tarih));
-  ekran(ad,`<div class="kart"><div class="ozet-satir"><div><span>Kalan</span><b class="${h.kalan>0?"borc":""}">${tl(h.kalan)}</b></div><div><span>İşlenen ders</span><b>${h.ders}</b></div><div><span>Ödenen</span><b>${tl(h.odenen)}</b></div></div>
+  ekran(ad,`<div class="kart"><div class="ozet-satir"><div><span>Kalan</span><b class="${h.kalan>0?"borc":""}">${tl(h.kalan)}</b></div><div><span>Geliş / ders</span><b>${h.ders} / ${h.ders*GELIS_DERS}</b></div><div><span>Ödenen</span><b>${tl(h.odenen)}</b></div></div>
       <label>Ders başı ücret (₺)</label><input id="ucret" type="number" inputmode="decimal" value="${o.ucret[ad]??""}">
-      <p class="ipucu">Yeni ücret bundan sonra işaretlenen derslere uygulanır.</p>
+      <p class="ipucu">Her geliş 2 ders sayılır, yani her "Geldi" için bu ücretin 2 katı yazılır.</p>
       <div class="butonlar"><button class="btn" id="odemeEkle">💰 Ödeme al</button></div></div>
     <div class="kart"><h2>🗓 Geçmiş ders ekle</h2>
       <label>Tarih</label><input id="gTarih" type="date" max="${isoTarih(new Date())}" value="${isoTarih(new Date())}">
@@ -1150,11 +1151,11 @@ async function hesapOzetiPdf(ad,donem){
   const o=ozelVeri(), W=1240, H=1754, M=90;
   const [bas,bit]=donem; // "YYYY-MM-DD" ya da null
   const ici=t=>(!bas||t>=bas)&&(!bit||t<=bit);
-  const tum=[...Object.entries(o.yoklama).filter(([k,y])=>y.ad===ad&&y.durum==="geldi").map(([k,y])=>({t:k.split("|")[0],ac:"Ders",tutar:dersUcret(y)})),
+  const tum=[...Object.entries(o.yoklama).filter(([k,y])=>y.ad===ad&&y.durum==="geldi").map(([k,y])=>({t:k.split("|")[0],ac:"Ders (2 saat)",tutar:dersUcret(y)})),
              ...o.odemeler.filter(x=>x.ad===ad).map(x=>({t:x.tarih,ac:"Ödeme"+(x.not?` (${x.not})`:""),tutar:-(+x.tutar||0)}))].sort((a,b)=>a.t.localeCompare(b.t));
   const devir=tum.filter(x=>bas&&x.t<bas).reduce((s,x)=>s+x.tutar,0);
   const satirlar=tum.filter(x=>ici(x.t));
-  const dersSay=satirlar.filter(x=>x.tutar>=0&&x.ac==="Ders").length, ucretTop=satirlar.filter(x=>x.ac==="Ders").reduce((s,x)=>s+x.tutar,0), odeTop=-satirlar.filter(x=>x.ac!=="Ders").reduce((s,x)=>s+x.tutar,0);
+  const dersSay=satirlar.filter(x=>x.tutar>=0&&x.ac.startsWith("Ders")).length, ucretTop=satirlar.filter(x=>x.ac.startsWith("Ders")).reduce((s,x)=>s+x.tutar,0), odeTop=-satirlar.filter(x=>!x.ac.startsWith("Ders")).reduce((s,x)=>s+x.tutar,0);
   const kalan=devir+ucretTop-odeTop;
   const sayfalar=[]; let c,g,y;
   const yeniSayfa=()=>{ c=document.createElement("canvas"); c.width=W; c.height=H; g=c.getContext("2d"); g.fillStyle="#fff"; g.fillRect(0,0,W,H); g.fillStyle="#111"; y=M; sayfalar.push(c); };
@@ -1165,7 +1166,7 @@ async function hesapOzetiPdf(ad,donem){
   yaz(`Öğrenci: ${ad}`,M,y,{b:true,s:30}); y+=44;
   yaz(`Öğretmen: ${S.okul.ogretmen}${S.okul.brans?" ("+S.okul.brans+")":""}`,M,y,{s:26}); y+=40;
   yaz(`Dönem: ${bas?trTarih(bas):"Başlangıç"} – ${bit?trTarih(bit):trTarih(isoTarih(new Date()))}`,M,y,{s:26}); y+=40;
-  const ucret=o.ucret[ad]; if(ucret) { yaz(`Ders ücreti: ${tl(ucret)}`,M,y,{s:26}); y+=40; }
+  const ucret=o.ucret[ad]; if(ucret) { yaz(`Ders ücreti: ${tl(ucret)} / ders · her geliş 2 ders = ${tl(ucret*GELIS_DERS)}`,M,y,{s:26}); y+=40; }
   y+=20;
   const baslik=()=>{ g.fillStyle="#e8eef4"; g.fillRect(M,y-34,W-2*M,50); yaz("Tarih",M+16,y,{b:true}); yaz("Açıklama",M+260,y,{b:true}); yaz("Tutar",W-M-16,y,{b:true,r:true}); y+=56; };
   baslik();
@@ -1175,7 +1176,7 @@ async function hesapOzetiPdf(ad,donem){
   if(!satirlar.length) satirCiz("","Bu dönemde hareket yok","");
   if(y>H-300){ yeniSayfa(); }
   y+=20; g.fillStyle="#f6f8fa"; g.fillRect(M,y,W-2*M,200); y+=50;
-  yaz(`İşlenen ders: ${dersSay}`,M+24,y,{s:28}); yaz(`Ders ücretleri: ${tl(ucretTop)}`,W-M-24,y,{s:28,r:true}); y+=50;
+  yaz(`Geliş: ${dersSay} (${dersSay*GELIS_DERS} ders)`,M+24,y,{s:28}); yaz(`Ders ücretleri: ${tl(ucretTop)}`,W-M-24,y,{s:28,r:true}); y+=50;
   yaz(`Ödenen: ${tl(odeTop)}`,W-M-24,y,{s:28,r:true}); y+=60;
   yaz(kalan>0?"Kalan borç:":kalan<0?"Avans (fazla ödeme):":"Hesap kapalı",M+24,y,{b:true,s:34}); yaz(kalan?tl(Math.abs(kalan)):"",W-M-24,y,{b:true,s:34,r:true,renk:kalan>0?"#b4541a":"#2c7a4b"});
   sayfalar.forEach((s,i)=>{ const gg=s.getContext("2d"); gg.font=`20px Roboto, Arial, sans-serif`; gg.fillStyle="#888"; gg.fillText(`Düzenlenme: ${trTarih(isoTarih(new Date()))}${sayfalar.length>1?`   ·   Sayfa ${i+1}/${sayfalar.length}`:""}`,M,H-60); });
