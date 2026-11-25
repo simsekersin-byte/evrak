@@ -91,6 +91,7 @@ details summary{cursor:pointer;font-weight:600;color:var(--ana2);margin-top:10px
 .ders-saat span{font-weight:400;color:var(--soluk);font-size:12px}
 .ders-icerik{flex:1;font-size:16px;font-weight:600;min-width:120px}
 .soluk{color:var(--soluk);font-weight:400}
+.mini-hesap{display:block;font-size:12px;font-weight:400;color:var(--soluk);margin-top:2px}
 .yoklama{display:flex;gap:4px;width:100%;padding-left:62px}
 .yk{flex:1;border:1px solid var(--cizgi);background:#fff;border-radius:8px;padding:7px 4px;font:inherit;font-size:13px}
 .yk.sec-geldi{background:#2c7a4b;color:#fff;border-color:#2c7a4b}
@@ -1043,7 +1044,7 @@ function programEkrani(k,secenek={}){
     const ekstralar=ozel?Object.entries(o.ekstra).filter(([key])=>key.startsWith(d.tarih+"|")):[];
     const satir=x=>{ const yk=d.tarih+"|"+g+"|"+x.j, y=ozel&&x.t?o.yoklama[yk]:null;
       return `<div class="ders-satir ${x.t?"":"bos"}"><div class="ders-saat">${esc(x.s.bas)}<br><span>${esc(x.s.bit)}</span></div>
-        <div class="ders-icerik" data-h="${g}|${x.j}">${x.t?esc(x.t).replace(/\n/g," · "):`<span class="soluk">boş</span>`}</div>
+        <div class="ders-icerik" data-h="${g}|${x.j}">${x.t?esc(x.t).replace(/\n/g," · "):`<span class="soluk">boş</span>`}${ozel&&x.t?(()=>{const h=ogrHesap(x.t); return `<span class="mini-hesap">Ödenen ${tl(h.odenen)} · Kalan <b class="${h.kalan>0?"borc":""}">${tl(Math.max(0,h.kalan))}</b></span>`;})():""}</div>
         ${ozel&&x.t?`<div class="yoklama">${["geldi","gelmedi","iptal"].map(du=>`<button class="yk ${y&&y.durum===du?"sec-"+du:""}" data-yk="${yk}" data-ad="${esc(x.t)}" data-du="${du}">${{geldi:"✓ Geldi",gelmedi:"✗ Gelmedi",iptal:"İptal"}[du]}</button>`).join("")}</div>`:""}</div>`; };
     govde=`<div class="hafta-nav" style="margin-bottom:8px"><button class="nav-ok" id="oncekiH">‹</button><div class="hafta-bilgi"><b>${GUN_UZUN[g]}</b><span>${trTarih(d.tarih)}${d.tarih===bugunIso?" · <em>bugün</em>":""}</span></div><button class="nav-ok" id="sonrakiH">›</button></div>
       <div class="gun-cipleri">${gunler.map((x,i)=>`<button class="gun-cip ${i===g?"aktif":""} ${isoTarih(x)===bugunIso?"bugun":""}" data-tr="${isoTarih(x)}">${GUN_KISA[i]}<b>${x.getDate()}</b></button>`).join("")}</div>
@@ -1068,10 +1069,10 @@ function programEkrani(k,secenek={}){
 }
 function ozelOdemeEkrani(k,sekme){
   const o=ozelVeri(), liste=ozelOgrenciler();
-  const top=liste.reduce((t,a)=>{const h=ogrHesap(a); t.kalan+=h.kalan; t.odenen+=h.odenen; return t;},{kalan:0,odenen:0});
+  const top=liste.reduce((t,a)=>{const h=ogrHesap(a); t.kalan+=h.kalan; t.odenen+=h.odenen; t.borc+=h.borc; return t;},{kalan:0,odenen:0,borc:0});
   ekran("Özel Ders",`${sekme}
-    <div class="kart"><div class="ozet-satir"><div><span>Toplam alacak</span><b class="${top.kalan>0?"borc":""}">${tl(top.kalan)}</b></div><div><span>Tahsil edilen</span><b>${tl(top.odenen)}</b></div></div></div>
-    ${liste.map(a=>{ const h=ogrHesap(a), u=o.ucret[a]; return `<button class="ogr-kart" data-ogr="${esc(a)}"><div><b>${esc(a)}</b><span>${u?tl(u)+" / ders":"ücret girilmedi"} · ${h.ders} ders işlendi</span></div><div class="${h.kalan>0?"borc":h.kalan<0?"fazla":h.ders?"tamam":"soluk"}">${h.kalan>0?tl(h.kalan)+" borç":h.kalan<0?tl(-h.kalan)+" avans":h.ders?"✓ ödendi":"—"}</div></button>`; }).join("")||`<div class="kart"><p>Henüz öğrenci yok.</p></div>`}
+    <div class="kart"><div class="ozet-satir"><div><span>Ders ücretleri</span><b>${tl(top.borc)}</b></div><div><span>Ödenen</span><b class="tamam">${tl(top.odenen)}</b></div><div><span>Kalan</span><b class="${top.kalan>0?"borc":""}">${tl(top.kalan)}</b></div></div></div>
+    ${liste.map(a=>{ const h=ogrHesap(a), u=o.ucret[a]; return `<button class="ogr-kart" data-ogr="${esc(a)}"><div><b>${esc(a)}</b><span>${u?tl(u)+" / ders":"ücret girilmedi"} · ${h.ders} ders işlendi</span><span>Ödenen: <b class="tamam">${tl(h.odenen)}</b> · Kalan: <b class="${h.kalan>0?"borc":""}">${tl(Math.max(0,h.kalan))}</b></span></div><div class="${h.kalan>0?"borc":h.kalan<0?"fazla":h.ders?"tamam":"soluk"}">${h.kalan>0?tl(h.kalan)+" borç":h.kalan<0?tl(-h.kalan)+" avans":h.ders?"✓ ödendi":"—"}</div></button>`; }).join("")||`<div class="kart"><p>Henüz öğrenci yok.</p></div>`}
     <div class="butonlar"><button class="btn ikincil" id="yeniOgr">+ Öğrenci ekle</button></div>`,{geri:anaSayfa});
   document.querySelectorAll("[data-sk]").forEach(b=>b.onclick=()=>programEkrani(k,{sekme:b.dataset.sk}));
   document.querySelectorAll("[data-ogr]").forEach(b=>b.onclick=()=>ozelOgrenciEkrani(b.dataset.ogr));
