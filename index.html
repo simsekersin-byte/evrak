@@ -1031,9 +1031,10 @@ function programEkrani(k,secenek={}){
   }
   const d=progDurum[k]=Object.assign({gorunum:"gun",tarih:isoTarih(new Date()),sekme:"program"},progDurum[k],secenek);
   const sec=new Date(d.tarih+"T12:00"), hb=haftaBasi(sec), g=gunNo(sec), bugunIso=isoTarih(new Date());
-  const ozel=k==="ozel", o=ozel?ozelVeri():null;
-  const sekme=ozel?`<div class="sekmeler"><button class="sekme ${d.sekme==="program"?"aktif":""}" data-sk="program">Program ve yoklama</button><button class="sekme ${d.sekme==="odeme"?"aktif":""}" data-sk="odeme">Öğrenciler ve ödeme</button></div>`:"";
+  const ozel=k==="ozel", o=ozel?ozelVeri():null, kurs=k==="kurs", kv=kurs?kursVeri():null;
+  const sekme=kurs?`<div class="sekmeler"><button class="sekme ${d.sekme!=="odeme"?"aktif":""}" data-sk="program">Program</button><button class="sekme ${d.sekme==="odeme"?"aktif":""}" data-sk="odeme">Ödeme</button></div>`:ozel?`<div class="sekmeler"><button class="sekme ${d.sekme==="program"?"aktif":""}" data-sk="program">Program ve yoklama</button><button class="sekme ${d.sekme==="odeme"?"aktif":""}" data-sk="odeme">Öğrenciler ve ödeme</button></div>`:"";
   if(ozel&&d.sekme==="odeme") return ozelOdemeEkrani(k,sekme);
+  if(kurs&&d.sekme==="odeme") return kursOdemeEkrani(sekme);
   const gunler=[...Array(7)].map((_,i)=>{ const x=new Date(hb); x.setDate(x.getDate()+i); return x; });
   const gorunumBtn=`<div class="butonlar" style="margin:0 0 10px"><button class="btn ${d.gorunum==="gun"?"":"ikincil"}" data-gr="gun">Gün</button><button class="btn ${d.gorunum==="hafta"?"":"ikincil"}" data-gr="hafta">Tüm hafta</button></div>`;
   let govde="";
@@ -1048,12 +1049,14 @@ function programEkrani(k,secenek={}){
     const satir=x=>{ const yk=d.tarih+"|"+g+"|"+x.j, y=ozel&&x.t?o.yoklama[yk]:null;
       return `<div class="ders-satir ${x.t?"":"bos"}"><div class="ders-saat">${esc(x.s.bas)}<br><span>${esc(x.s.bit)}</span></div>
         <div class="ders-icerik" data-h="${g}|${x.j}">${x.t?esc(x.t).replace(/\n/g," · "):`<span class="soluk">boş</span>`}${ozel&&x.t&&!o.gizli[x.t.trim()]?(()=>{const h=ogrHesap(x.t); return `<span class="mini-hesap">Ödenen ${tl(h.odenen)} · Kalan <b class="${h.kalan>0?"borc":""}">${tl(Math.max(0,h.kalan))}</b></span>`;})():""}</div>
+        ${kurs&&x.t?(()=>{ const ik=d.tarih+"|"+g+"|"+x.j, ip=kv.iptal[ik]; return `<div class="yoklama"><button class="yk ${ip?"sec-iptal":""}" data-kiptal="${ik}">${ip?"İptal edildi (geri al)":"Ders yapılmadıysa: İptal"}</button></div>`; })():""}
         ${ozel&&x.t?`<div class="yoklama">${["geldi","gelmedi","iptal"].map(du=>`<button class="yk ${y&&y.durum===du?"sec-"+du:""}" data-yk="${yk}" data-ad="${esc(x.t)}" data-du="${du}">${{geldi:"✓ Geldi",gelmedi:"✗ Gelmedi",iptal:"İptal"}[du]}</button>`).join("")}</div>`:""}</div>`; };
     govde=`<div class="hafta-nav" style="margin-bottom:8px"><button class="nav-ok" id="oncekiH">‹</button><div class="hafta-bilgi"><b>${GUN_UZUN[g]}</b><span>${trTarih(d.tarih)}${d.tarih===bugunIso?" · <em>bugün</em>":""}</span><input type="date" id="tarihGit" class="tarih-git" value="${d.tarih}" aria-label="Tarihe git"></div><button class="nav-ok" id="sonrakiH">›</button></div>
       <div class="gun-cipleri">${gunler.map((x,i)=>`<button class="gun-cip ${i===g?"aktif":""} ${isoTarih(x)===bugunIso?"bugun":""}" data-tr="${isoTarih(x)}">${GUN_KISA[i]}<b>${x.getDate()}</b></button>`).join("")}</div>
       <div class="kart" style="padding:6px 12px">${(ozel?dersler.filter(x=>x.t):dersler.filter(x=>x.t||dersler.some(y=>y.t))).map(satir).join("")||`<p style="padding:12px 0">Bu gün ders yok.</p>`}
       ${ekstralar.map(([key,e])=>{ const y=o.yoklama[key]; return `<div class="ders-satir"><div class="ders-saat">${esc(e.saat||"")}<br><span>ekstra</span></div><div class="ders-icerik">${esc(e.ad)}</div><div class="yoklama">${["geldi","gelmedi","iptal"].map(du=>`<button class="yk ${y&&y.durum===du?"sec-"+du:""}" data-yk="${key}" data-ad="${esc(e.ad)}" data-du="${du}">${{geldi:"✓ Geldi",gelmedi:"✗ Gelmedi",iptal:"İptal"}[du]}</button>`).join("")}<button class="yk" data-ekstra-sil="${key}">Sil</button></div></div>`; }).join("")}
       </div>
+      ${kurs?(()=>{ const ek=Object.entries(kv.ekstra).filter(([key])=>key.startsWith(d.tarih+"|")); return ek.map(([key,e])=>`<div class="ders-satir"><div class="ders-saat">ekstra</div><div class="ders-icerik">${e.adet} ders${e.not?" · "+esc(e.not):""}</div><div class="yoklama"><button class="yk" data-kek-sil="${key}">Sil</button></div></div>`).join("")+`<div class="butonlar"><button class="btn ikincil" id="kursEkstra">+ Ekstra / telafi dersi</button></div>`; })():""}
       ${ozel?`<div class="butonlar"><button class="btn ikincil" id="ekstraEkle">+ Ekstra / telafi dersi</button></div>`:`<p class="ipucu">Değiştirmek için bir derse dokunun.</p>`}`;
   }
   ekran(tur.ad,`${sekme}${gorunumBtn}${govde}${p.not?`<p class="ipucu">📌 ${esc(p.not)}</p>`:""}`,{geri:anaSayfa});
@@ -1069,7 +1072,48 @@ function programEkrani(k,secenek={}){
     if(mev&&mev.durum===du) delete o.yoklama[key]; else o.yoklama[key]={ad,durum:du,ucret:+o.ucret[ad]||0};
     kaydet(); yenile(); });
   document.querySelectorAll("[data-ekstra-sil]").forEach(b=>b.onclick=()=>{ if(!confirm("Ekstra ders silinsin mi?")) return; delete o.ekstra[b.dataset.ekstraSil]; delete o.yoklama[b.dataset.ekstraSil]; kaydet(); yenile(); });
+  document.querySelectorAll("[data-kiptal]").forEach(b=>b.onclick=()=>{ const key=b.dataset.kiptal; if(kv.iptal[key]) delete kv.iptal[key]; else kv.iptal[key]=true; kaydet(); yenile(); });
+  document.querySelectorAll("[data-kek-sil]").forEach(b=>b.onclick=()=>{ delete kv.ekstra[b.dataset.kekSil]; kaydet(); yenile(); });
+  const ke=$("#kursEkstra"); if(ke) ke.onclick=()=>{ const a=prompt("Kaç ders (saat) yapıldı?","2"); const adet=parseInt(a); if(!(adet>0)) return; const not=prompt("Not (ör. sınıf adı, isteğe bağlı):","")||""; kv.ekstra[d.tarih+"|x|"+Date.now()]={adet,not}; kaydet(); yenile(); };
   const ee=$("#ekstraEkle"); if(ee) ee.onclick=()=>{ const ad=prompt("Öğrencinin adı:"); if(!ad||!ad.trim()) return; const saat=prompt("Saat (ör. 20:00):","")||""; const key=d.tarih+"|x|"+Date.now(); o.ekstra[key]={ad:ad.trim(),saat}; kaydet(); yenile(); };
+}
+/* ---------- 5K kurs ödemesi: ayın 1'inden 1'ine, ders başı ücret ---------- */
+function kursVeri(){ S.kurs=S.kurs||{}; const v=S.kurs;
+  if(v.ucret===undefined) v.ucret=1000;
+  if(!v.bas){ const m=((prog("kurs")||{}).not||"").match(/(\d{2})\.(\d{2})\.(\d{4})/); v.bas=m?`${m[3]}-${m[2]}-${m[1]}`:isoTarih(new Date(new Date().getFullYear(),new Date().getMonth(),1)); }
+  v.iptal=v.iptal||{}; v.ekstra=v.ekstra||{}; v.odemeler=v.odemeler||[]; return v; }
+const ayAdi=ym=>{ const [y,m]=ym.split("-"); const a=AYLAR[+m-1]; return a.charAt(0).toLocaleUpperCase("tr-TR")+a.slice(1)+" "+y; };
+function kursAylar(){ // {"YYYY-MM": ders sayısı}
+  const v=kursVeri(), p=prog("kurs"), ay={}, bugun=isoTarih(new Date());
+  if(p){ const x=new Date(v.bas+"T12:00"); while(isoTarih(x)<=bugun){ const iso=isoTarih(x), g=gunNo(x);
+    p.saatler.forEach((_,j)=>{ if((p.hucre[g+"|"+j]||"").trim()&&!v.iptal[iso+"|"+g+"|"+j]) ay[iso.slice(0,7)]=(ay[iso.slice(0,7)]||0)+1; });
+    x.setDate(x.getDate()+1); } }
+  Object.entries(v.ekstra).forEach(([key,e])=>{ const m=key.slice(0,7); ay[m]=(ay[m]||0)+(+e.adet||0); });
+  v.odemeler.forEach(o=>{ if(!(o.donem in ay)) ay[o.donem]=0; });
+  return ay; }
+function kursOdemeEkrani(sekme){
+  const v=kursVeri(), ay=kursAylar(), aylar=Object.keys(ay).sort().reverse(), buAy=isoTarih(new Date()).slice(0,7);
+  const odenen=m=>v.odemeler.filter(o=>o.donem===m).reduce((t,o)=>t+(+o.tutar||0),0);
+  const top=aylar.reduce((t,m)=>{ t.hak+=ay[m]*v.ucret; t.od+=odenen(m); return t; },{hak:0,od:0});
+  const varsayilan=aylar.find(m=>m<buAy&&ay[m]*v.ucret>odenen(m))||aylar.find(m=>m<buAy)||buAy;
+  ekran("5K Programı",`${sekme}
+    <div class="kart"><div class="ozet-satir"><div><span>Ders ücretleri</span><b>${tl(top.hak)}</b></div><div><span>Ödenen</span><b class="tamam">${tl(top.od)}</b></div><div><span>Kalan</span><b class="${top.hak-top.od>0?"borc":""}">${tl(top.hak-top.od)}</b></div></div></div>
+    ${aylar.map(m=>{ const h=ay[m]*v.ucret, o=odenen(m), k=h-o; return `<div class="ogr-kart" style="cursor:default"><div><b>${ayAdi(m)}${m===buAy?" · devam ediyor":""}</b><span>${ay[m]} ders × ${tl(v.ucret)} = ${tl(h)}</span><span>Ödenen: <b class="tamam">${tl(o)}</b> · Kalan: <b class="${k>0?"borc":""}">${tl(Math.max(0,k))}</b>${k<0?" (fazla "+tl(-k)+")":""}</span></div><div class="${k>0?"borc":"tamam"}">${k>0?tl(k):h?"✓":"—"}</div></div>`; }).join("")||"<p>Henüz ders yok.</p>"}
+    <div class="kart"><h2>💰 Ödeme al</h2>
+      <label>Hangi ayın ödemesi</label><select id="kDonem">${[...new Set([buAy,...aylar])].sort().reverse().map(m=>`<option value="${m}" ${m===varsayilan?"selected":""}>${ayAdi(m)}</option>`).join("")}</select>
+      <label>Tutar (₺)</label><input id="kTutar" type="number" inputmode="decimal">
+      <label>Ödeme tarihi</label><input id="kTarih" type="date" value="${isoTarih(new Date())}">
+      <div class="butonlar"><button class="btn" id="kOde">Kaydet</button></div></div>
+    <div class="kart"><h2>Alınan ödemeler</h2>${v.odemeler.map((o,i)=>({...o,i})).sort((a,b)=>b.tarih.localeCompare(a.tarih)).map(o=>`<div class="hareket odeme"><span>${trTarih(o.tarih)} · ${ayAdi(o.donem)}${o.not?" ("+esc(o.not)+")":""}</span><b>${tl(o.tutar)} <button class="yk" data-kosil="${o.i}">Sil</button></b></div>`).join("")||"<p>Henüz ödeme yok.</p>"}</div>
+    <details><summary>Ayarlar</summary>
+      <label>Ders başı ücret (₺)</label><input id="kUcret" type="number" inputmode="decimal" value="${v.ucret}">
+      <label>Kursun başladığı tarih</label><input id="kBas" type="date" value="${v.bas}">
+      <p class="ipucu">Dersler programdan bu tarihten itibaren kendiliğinden sayılır. Yapılmayan dersleri Program sekmesinde ilgili günde "İptal" ile işaretleyin.</p></details>`,{geri:anaSayfa});
+  document.querySelectorAll("[data-sk]").forEach(b=>b.onclick=()=>programEkrani("kurs",{sekme:b.dataset.sk}));
+  $("#kOde").onclick=()=>{ const tutar=+String($("#kTutar").value).replace(",","."); if(!(tutar>0)) return bildir("Tutarı yazın."); v.odemeler.push({donem:$("#kDonem").value,tarih:$("#kTarih").value||isoTarih(new Date()),tutar,not:""}); kaydet(); bildir("Ödeme kaydedildi."); kursOdemeEkrani(sekme); };
+  document.querySelectorAll("[data-kosil]").forEach(b=>b.onclick=()=>{ if(!confirm("Ödeme silinsin mi?")) return; v.odemeler.splice(+b.dataset.kosil,1); kaydet(); kursOdemeEkrani(sekme); });
+  $("#kUcret").onchange=e=>{ v.ucret=+String(e.target.value).replace(",",".")||0; kaydet(); kursOdemeEkrani(sekme); };
+  $("#kBas").onchange=e=>{ if(e.target.value){ v.bas=e.target.value; kaydet(); kursOdemeEkrani(sekme); } };
 }
 function ozelOdemeEkrani(k,sekme){
   const o=ozelVeri(), hepsi=ozelOgrenciler(), liste=hepsi.filter(a=>!o.gizli[a]), disari=hepsi.filter(a=>o.gizli[a]);
