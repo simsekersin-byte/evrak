@@ -133,7 +133,7 @@ const BOS = {
 let S;
 try{ S = Object.assign(structuredClone(BOS), JSON.parse(localStorage.getItem(ANAHTAR)||"{}")); }catch(e){ S = structuredClone(BOS); }
 S.okul = Object.assign({}, BOS.okul, S.okul);
-function kaydet(){ try{ localStorage.setItem(ANAHTAR, JSON.stringify(S)); }catch(e){ bildir("Kaydedilemedi: telefon hafızası dolu olabilir."); } }
+function kaydet(){ S._zaman=Date.now(); clearTimeout(window.esitleZaman); window.esitleZaman=setTimeout(()=>typeof esitleGonder==="function"&&esitleGonder(),2500); try{ localStorage.setItem(ANAHTAR, JSON.stringify(S)); }catch(e){ bildir("Kaydedilemedi: telefon hafızası dolu olabilir."); } }
 
 /* ---------- yardımcılar ---------- */
 const $ = (s,el=document)=>el.querySelector(s);
@@ -1023,8 +1023,9 @@ const EVRAK_SIRASI=["gunluk","proje","sok","zumre","veli","rehberlik","oturma"];
 /* =========================================================
    EKRANLAR
    ========================================================= */
-let geriFn=null;
+let geriFn=null, aktifEkran="";
 function ekran(baslik,html,{geri}={}){
+  aktifEkran=(baslik==="Evrak Defterim")?"ana":baslik;
   $("#baslik").textContent=baslik; $("#ekran").innerHTML=html; window.scrollTo(0,0);
   geriFn=geri||null; $("#geri").hidden=!geri;
 }
@@ -1037,7 +1038,7 @@ function anaSayfa(){
     <div class="kart"><h2>${esc(o.okul||"Okulunuz")}</h2><p>${esc(o.ogretmen)} · ${esc(o.brans)} · ${esc(o.sube)} rehber öğretmeni · ${S.ogrenciler.length} öğrenci · ${esc(o.yil)}</p></div>
     <button class="evrak panel-giris" id="panelGit"><span class="sim">📖</span><b>Haftalık Plan</b><span>${sinifSecenek().map(x=>{const p=planGetir(x); if(!p) return `${esc(x)}: plan yüklenmedi`; const r=p.satirlar[buHafta(p)]; return `${esc(x)}: ${esc((satirDeger(p,r,"konu")||satirDeger(p,r,"tema")||r.h.find(Boolean)||"").split("\n")[0])}`;}).join("<br>")}</span></button>
     <div class="izgara">${EVRAK_SIRASI.map(id=>[id,EVRAKLAR[id]]).map(([id,e])=>`<button class="evrak" data-ev="${id}"><span class="sim">${e.sim}</span><b>${e.ad}</b><span>${e.acik}</span></button>`).join("")}</div>
-    <div class="butonlar"><button class="btn ikincil" id="ayar">⚙️ Bilgilerim</button><button class="btn ikincil" id="yedek">💾 Yedek</button></div>
+    <div class="butonlar"><button class="btn ikincil" id="ayar">⚙️ Bilgilerim</button><button class="btn ikincil" id="yedek">💾 Yedek ve eşitleme</button></div>
     <p class="ipucu" style="text-align:center;margin-top:16px">Tüm bilgiler yalnızca bu telefonda saklanır.</p>`);
   document.querySelectorAll("[data-ev]").forEach(b=>b.onclick=()=>evrakForm(b.dataset.ev));
   $("#panelGit").onclick=()=>panelEkrani();
@@ -1217,6 +1218,7 @@ function indir(blob,ad){ const a=document.createElement("a"); a.href=URL.createO
 /* ---------- yedekleme ---------- */
 function yedekEkrani(){
   ekran("Yedek",`
+    ${esitlemeKarti()}
     <div class="kart"><h2>Yedek al</h2><p>Tüm bilgilerinizi (okul, öğrenciler, şablonlar) tek dosyaya kaydeder. Telefon değiştirirken veya uygulamayı silmeden önce yedek alın.</p>
       <div class="butonlar"><button class="btn" id="yedekAl">💾 Yedek dosyası indir</button></div></div>
     <div class="kart"><h2>Yedekten geri yükle</h2><p>Daha önce aldığınız yedek dosyasını seçin. Mevcut bilgilerin yerine geçer.</p>
@@ -1224,6 +1226,7 @@ function yedekEkrani(){
     <div class="kart"><h2>Her şeyi sil</h2><p>Bu telefondaki tüm bilgileri siler.</p>
       <div class="butonlar"><button class="btn tehlike" id="sil">Tüm verileri sil</button></div></div>
   `,{geri:anaSayfa});
+  esitlemeKartiBagla();
   $("#yedekAl").onclick=()=>indir(new Blob([JSON.stringify(S,null,1)],{type:"application/json"}),`evrak-yedek-${bugun()}.json`);
   $("#yedekYukle").onchange=async e=>{ const f=e.target.files[0]; if(!f) return; try{ const d=JSON.parse(await f.text()); if(!d.okul) throw 0; S=Object.assign(structuredClone(BOS),d); kaydet(); bildir("Yedek yüklendi."); anaSayfa(); }catch(_){ bildir("Bu dosya geçerli bir yedek değil."); } };
   $("#sil").onclick=()=>{ if(confirm("Tüm bilgiler silinsin mi? Bu geri alınamaz.")){ localStorage.removeItem(ANAHTAR); S=structuredClone(BOS); anaSayfa(); } };
@@ -1237,6 +1240,87 @@ $("#yukleBtn").onclick=async()=>{ if(!kurulumIstegi) return; kurulumIstegi.promp
 window.addEventListener("appinstalled",()=>{ $("#yukleBtn").hidden=true; bildir("Uygulama ana ekrana eklendi."); });
 
 anaSayfa();
+/* ---------- Otomatik eşitleme (kendi Google Drive'ınız üzerinden) ---------- */
+const ESITLE_ANAHTAR="evrakDefterim.esitle";
+const esitleAdres=()=>{ try{ return localStorage.getItem(ESITLE_ANAHTAR)||""; }catch(_){ return ""; } };
+let esitleDurum="", esitleZamanlayici=null, esitleMesgul=false;
+function esitleYaz(m){ esitleDurum=m; const el=document.getElementById("esitleDurum"); if(el) el.textContent=m; }
+const saatYaz=()=>new Date().toLocaleTimeString("tr-TR",{hour:"2-digit",minute:"2-digit"});
+async function esitleCek(){
+  const u=esitleAdres(); if(!u) return null;
+  const r=await fetch(u+(u.includes("?")?"&":"?")+"t="+Date.now(),{cache:"no-store"});
+  return await r.json();
+}
+function uzaktanAl(d){
+  const yerel=S;
+  S=Object.assign(structuredClone(BOS),d.veri); S.okul=Object.assign({},BOS.okul,S.okul); S._zaman=d.zaman;
+  try{ localStorage.setItem(ANAHTAR, JSON.stringify(S)); }catch(_){}
+  if(aktifEkran==="ana") anaSayfa(); else bildir("Diğer cihazdaki değişiklikler alındı.");
+  return yerel;
+}
+async function esitleGonder(){
+  const u=esitleAdres(); if(!u||esitleMesgul) return; esitleMesgul=true;
+  try{
+    const r=await fetch(u,{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify({zaman:S._zaman||Date.now(),veri:S})});
+    const j=await r.json();
+    if(j.durum==="eski"){ const d=await esitleCek(); if(d&&d.veri) uzaktanAl(d); }
+    esitleYaz("Son eşitleme: "+saatYaz());
+  }catch(e){ esitleYaz("Eşitlenemedi (internet yok olabilir). Sonra tekrar denenecek."); }
+  esitleMesgul=false;
+}
+async function esitle(){
+  if(!esitleAdres()||esitleMesgul) return;
+  try{
+    const d=await esitleCek();
+    if(d&&d.veri&&(d.zaman||0)>(S._zaman||0)){ uzaktanAl(d); esitleYaz("Son eşitleme: "+saatYaz()); }
+    else if(!d||!d.veri||(S._zaman||0)>(d.zaman||0)) await esitleGonder();
+    else esitleYaz("Son eşitleme: "+saatYaz());
+  }catch(e){ esitleYaz("Eşitlenemedi (internet yok olabilir). Sonra tekrar denenecek."); }
+}
+/* Cihazı bağla: buluttaki bilgiler varsa onları alır, yoksa bu cihazdakileri gönderir */
+async function esitlemeyiBagla(u){
+  u=String(u||"").trim();
+  if(!/^https:\/\/script\.google(usercontent)?\.com\//.test(u)){ bildir("Bu bir Google Apps Script adresi değil."); return false; }
+  try{ localStorage.setItem(ESITLE_ANAHTAR,u); }catch(_){}
+  try{
+    const d=await esitleCek();
+    if(d&&d.veri){
+      if(S.kurulumTamam&&JSON.stringify(d.veri.okul)!==JSON.stringify(S.okul)&&!confirm("Buluttaki bilgiler bu cihazdakilerin yerine geçsin mi?")) { await esitleGonder(); }
+      else { uzaktanAl(d); if(aktifEkran!=="ana") anaSayfa(); }
+    }else{ S._zaman=Date.now(); try{ localStorage.setItem(ANAHTAR, JSON.stringify(S)); }catch(_){} await esitleGonder(); }
+    bildir("Eşitleme açıldı."); return true;
+  }catch(e){ try{ localStorage.removeItem(ESITLE_ANAHTAR); }catch(_){} bildir("Adrese ulaşılamadı. Adresi ve dağıtım ayarlarını kontrol edin."); return false; }
+}
+function esitlemeKarti(){
+  const u=esitleAdres();
+  return `<div class="kart"><h2>🔄 Otomatik eşitleme</h2>
+    ${u?`<p>Açık. Bilgileriniz bu cihazla diğer cihazlarınız arasında kendiliğinden eşitleniyor.</p><p class="sayac" id="esitleDurum">${esc(esitleDurum||"Bekleniyor…")}</p>
+      <div class="butonlar"><button class="btn" id="esitleSimdi">Şimdi eşitle</button><button class="btn ikincil" id="esitleLink">📤 Tablete bağlantı gönder</button></div>
+      <details style="margin-top:8px"><summary>Eşitlemeyi kapat</summary><p class="ipucu">Bilgiler bu cihazda kalır, yalnızca eşitleme durur.</p><button class="btn tehlike" id="esitleKapat">Kapat</button></details>`
+    :`<p>Telefon ve tablet aynı bilgileri görsün. Bilgiler kendi Google Drive'ınızda saklanır.</p>
+      <label>Eşitleme adresi <small>(Apps Script web uygulaması adresi)</small></label><input id="esitleGiris" placeholder="https://script.google.com/macros/s/…/exec">
+      <div class="butonlar"><button class="btn" id="esitleAc">Bağla</button></div>`}
+  </div>`;
+}
+function esitlemeKartiBagla(){
+  const ac=$("#esitleAc"); if(ac) ac.onclick=async()=>{ if(await esitlemeyiBagla($("#esitleGiris").value)) yedekEkrani(); };
+  const sm=$("#esitleSimdi"); if(sm) sm.onclick=()=>{ esitleYaz("Eşitleniyor…"); esitle(); };
+  const kp=$("#esitleKapat"); if(kp) kp.onclick=()=>{ try{ localStorage.removeItem(ESITLE_ANAHTAR); }catch(_){} bildir("Eşitleme kapatıldı."); yedekEkrani(); };
+  const ln=$("#esitleLink"); if(ln) ln.onclick=async()=>{
+    const link=location.origin+location.pathname+"#esitle="+encodeURIComponent(esitleAdres());
+    try{ if(navigator.share){ await navigator.share({title:"Evrak Defterim bağlantısı",text:"Tablette Chrome ile açın:",url:link}); return; } }catch(_){ return; }
+    try{ await navigator.clipboard.writeText(link); bildir("Bağlantı kopyalandı."); }catch(_){ prompt("Bu bağlantıyı tablette açın:",link); }
+  };
+}
+/* Açılışta: "#esitle=..." bağlantısıyla gelindiyse cihazı bağla */
+(async()=>{
+  const m=location.hash.match(/^#esitle=(.+)$/);
+  if(m){ history.replaceState(null,"",location.pathname); await esitlemeyiBagla(decodeURIComponent(m[1])); }
+  else esitle();
+})();
+document.addEventListener("visibilitychange",()=>{ if(document.visibilityState==="visible") esitle(); });
+setInterval(()=>{ if(document.visibilityState==="visible") esitle(); },60000);
+
 </script>
 </body>
 </html>

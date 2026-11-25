@@ -1,0 +1,29 @@
+// Evrak Defterim - otomatik eşitleme
+// Bu kodu script.google.com'da yeni bir projeye yapıştırın,
+// "Web uygulaması" olarak dağıtın (Erişim: Herkes).
+// Bilgiler Google Drive'ınızda "evrak-defterim-veri.json" dosyasında durur.
+
+function dosya_() {
+  var it = DriveApp.getFilesByName("evrak-defterim-veri.json");
+  return it.hasNext() ? it.next() : DriveApp.createFile("evrak-defterim-veri.json", "{}", "application/json");
+}
+function cevap_(nesne) {
+  return ContentService.createTextOutput(JSON.stringify(nesne)).setMimeType(ContentService.MimeType.JSON);
+}
+function doGet(e) {
+  return ContentService.createTextOutput(dosya_().getBlob().getDataAsString() || "{}").setMimeType(ContentService.MimeType.JSON);
+}
+function doPost(e) {
+  var kilit = LockService.getScriptLock();
+  kilit.waitLock(20000);
+  try {
+    var gelen = JSON.parse(e.postData.contents);
+    var f = dosya_();
+    var eski = JSON.parse(f.getBlob().getDataAsString() || "{}");
+    if ((eski.zaman || 0) > (gelen.zaman || 0)) return cevap_({ durum: "eski", zaman: eski.zaman });
+    f.setContent(JSON.stringify({ zaman: gelen.zaman, veri: gelen.veri }));
+    return cevap_({ durum: "tamam" });
+  } finally {
+    kilit.releaseLock();
+  }
+}

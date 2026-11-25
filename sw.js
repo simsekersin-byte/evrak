@@ -1,15 +1,16 @@
 // Evrak Defterim - çevrimdışı önbellek
-const SURUM = "evrak-v6";
-const DOSYALAR = ["./", "index.html", "manifest.webmanifest", "icon-192.png", "icon-512.png"];
+const SURUM = "evrak-v7";
+const DOSYALAR = ["./", "index.html", "manifest.webmanifest", "icon-192.png?v=2", "icon-512.png?v=2"];
 self.addEventListener("install", e => {
   e.waitUntil(caches.open(SURUM).then(c => c.addAll(DOSYALAR)).then(() => self.skipWaiting()));
 });
 self.addEventListener("activate", e => {
   e.waitUntil(caches.keys().then(k => Promise.all(k.filter(x => x !== SURUM).map(x => caches.delete(x)))).then(() => self.clients.claim()));
 });
-// Önce internetten güncelini dener, yoksa önbellekten açar
+// Yalnızca uygulamanın kendi dosyaları: önce internetten güncelini dener, yoksa önbellekten açar.
+// Eşitleme (Google) istekleri önbelleğe alınmaz.
 self.addEventListener("fetch", e => {
-  if (e.request.method !== "GET") return;
+  if (e.request.method !== "GET" || new URL(e.request.url).origin !== self.location.origin) return;
   e.respondWith(
     fetch(e.request).then(r => {
       const kopya = r.clone();
