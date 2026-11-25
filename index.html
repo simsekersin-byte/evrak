@@ -436,7 +436,13 @@ function planCikar(tablolar){
     for(let i=0;i<t.length;i++){
       const r=t[i]; if(!r.some(x=>x.trim())) continue;
       const m=planAlanlari(r);
-      if(r.length>=4&&Object.keys(m).length>=3&&Object.keys(m).length>=r.filter(x=>x.trim()).length/2){ if(!bas) bas=r.map(x=>x.replace(/\s+/g," ").trim()); continue; }
+      if(r.length>=4&&Object.keys(m).length>=3&&Object.keys(m).length>=r.filter(x=>x.trim()).length/2){
+        if(!bas) bas=r.map(x=>x.replace(/\s+/g," ").trim());
+        else if(!sat.length){ // iki satırlı başlık (ör. SÜRE altında AY / HAFTA / SAAT)
+          const ust=bas.slice(); const n=Math.max(ust.length,r.length);
+          bas=[...Array(n)].map((_,j)=>{ const a=(r[j]||"").replace(/\s+/g," ").trim(); if(a) return a; const u=ust[j]||""; return u&&(ust[j-1]===u||ust[j+1]===u)&&r.some((x,k)=>x.trim()&&ust[k]===u)?"":u; });
+        }
+        continue; }
       if(!bas||r.length!==bas.length) continue; // farklı yapıdaki tabloları (tema bilgi tablosu vb.) atla
       sat.push(bas.map((_,j)=>(r[j]||"").trim()));
     }
@@ -445,13 +451,30 @@ function planCikar(tablolar){
   /* tamamen boş sütunları at */
   const dolu=bas.map((h,j)=>h||sat.some(r=>r[j]));
   bas=bas.filter((_,j)=>dolu[j]); sat=sat.map(r=>r.filter((_,j)=>dolu[j]));
-  const alan=planAlanlari(bas);
-  const satirlar=sat.map(r=>{ const farkli=new Set(r.filter(Boolean)); return {h:r,ara:farkli.size<=1}; });
+  let alan=planAlanlari(bas);
+  /* tarih sütunu başlıksızsa ("14 18", " 28 02" gibi) bul ve ay ile birleştir */
+  if(alan.tarih==null){ const j=bas.findIndex((h,j)=>!h&&sat.filter(r=>/^\s*\d{1,2}\s+\d{1,2}\s*$/.test(r[j])).length>=sat.length/3); if(j>=0){ bas[j]="TARİH"; alan=planAlanlari(bas); } }
+  /* ay sütununu aşağı doğru doldur */
+  if(alan.ay!=null){ let ay=""; sat.forEach(r=>{ if(r[alan.ay]) ay=r[alan.ay]; else r[alan.ay]=ay; }); }
+  if(alan.tarih!=null&&alan.ay!=null) sat.forEach(r=>{ const m=String(r[alan.tarih]).match(/^\s*(\d{1,2})\s+(\d{1,2})\s*$/); if(!m) return;
+    const a=ayNo(r[alan.ay]); if(a<0) return; const ad=x=>{ const t=AYLAR[(x+12)%12]; return t.charAt(0).toLocaleUpperCase("tr-TR")+t.slice(1); };
+    if(+m[2]>=+m[1]){ r[alan.tarih]=`${+m[1]}-${+m[2]} ${ad(a)}`; return; }
+    const y1=+(String(S.okul.yil).match(/\d{4}/)||[new Date().getFullYear()])[0], pzt=x=>{ x=(x+12)%12; return new Date(x>=7?y1:y1+1,x,+m[1]).getDay()===1; };
+    const bas=pzt(a)||!pzt(a-1)?a:a-1; r[alan.tarih]=`${+m[1]} ${ad(bas)}-${+m[2]} ${ad(bas+1)}`; });
+  /* birleştirilmiş hücrelerden gelen hafta/kazanımsız ara satırları at, aynı haftanın satırlarını birleştir */
+  const anahtar=["hafta","tarih"].map(k=>alan[k]).filter(x=>x!=null), icerik=["cikti","konu"].map(k=>alan[k]).filter(x=>x!=null);
+  if(anahtar.length){ const birlesik=[]; let onceki=null;
+    sat.forEach(r=>{ if(anahtar.every(j=>!String(r[j]).trim())) return; if(icerik.length&&icerik.every(j=>!String(r[j]).trim())&&r.filter(x=>String(x).trim()).length>anahtar.length+1) return;
+      const k=anahtar.map(j=>r[j]).join("|");
+      if(onceki&&onceki.k===k){ r.forEach((x,j)=>{ x=String(x).trim(); if(x&&!onceki.r[j].split("\n").includes(x)&&!onceki.r[j].includes(x)) onceki.r[j]+=(onceki.r[j]?"\n":"")+x; }); return; }
+      onceki={k,r:r.map(x=>String(x))}; birlesik.push(onceki); });
+    sat=birlesik.map(x=>x.r); }
+  const satirlar=sat.map(r=>{ const farkli=new Set(r.filter(Boolean)); const ara=farkli.size<=1||(r.some(x=>/ARA TAT[İI]L|YARIYIL TAT[İI]L|BAYRAM TAT/i.test(x))&&!(alan.konu!=null&&String(r[alan.konu]).trim())); return {h:r,ara}; });
   return {basliklar:bas,alan,satirlar};
 }
-async function planDosyasiOku(ad,buf){
+async function planDosyasiOku(ad,buf,sayfa){
   if(/\.docx$/i.test(ad)) return planCikar(await docxTablolar(buf));
-  if(/\.xlsx$/i.test(ad)) return planCikar([await xlsxSatirlar(buf)]);
+  if(/\.xlsx$/i.test(ad)){ const t=await xlsxSatirlar(buf,sayfa); const n=Math.max(...t.map(r=>r.length)); return planCikar([t.map(r=>[...r,...Array(n-r.length).fill("")])]); }
   throw new Error("Desteklenmeyen dosya: "+ad);
 }
 function csvSatirlar(metin){
@@ -776,7 +799,7 @@ Aralık | Sınav kaygısıyla başa çıkma | Tüm sınıf katıldı`; }},
    ========================================================= */
 const seviye = sube=>(String(sube||"").match(/\d+/)||[""])[0];
 const sinifSecenek = ()=>(S.siniflar&&S.siniflar.length?S.siniflar:[S.okul.sube]);
-function planGetir(sube){ return S.yillik[seviye(sube)]||null; }
+function planGetir(sube){ return S.yillik[sube]||S.yillik[seviye(sube)]||null; }
 function satirDeger(plan,r,k){ const i=plan.alan[k]; return i==null?"":(r.h[i]||""); }
 function haftaEtiket(plan,r){
   const p=[satirDeger(plan,r,"hafta"),satirDeger(plan,r,"tarih")||satirDeger(plan,r,"ay")].filter(Boolean).join(" · ").replace(/\n/g," ");
@@ -796,7 +819,7 @@ function planKutusuCiz(v){
   const sube=v.sinif||sinifSecenek()[0], sv=seviye(sube), p=planGetir(sube);
   const say=p?p.satirlar.filter(r=>!r.ara).length:0;
   return `<div class="kart" style="background:#f7fafc;border:1px solid var(--cizgi);box-shadow:none;margin-top:12px">
-    <h2 style="font-size:15px">${sv}. sınıf yıllık planı</h2>
+    <h2 style="font-size:15px">${esc(sube)} yıllık planı</h2>
     ${p?`<p>✅ Yüklü: <b>${say} hafta</b>${p.kaynak?` · ${esc(p.kaynak)}`:""}</p>`:`<p>Henüz yüklenmedi. Yıllık plan dosyasını seçin (Word, Excel ya da MEB'in zip dosyası).</p>`}
     <div class="butonlar"><label class="btn ${p?"ikincil":""}" style="margin:0">📥 ${p?"Yeni dosya yükle":"Plan dosyasını seç"}<input type="file" data-plan-dosya accept=".zip,.docx,.xlsx,application/zip,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" hidden></label>
     ${p?`<button class="btn tehlike" data-plan-sil>Sil</button>`:""}</div>
@@ -808,14 +831,19 @@ function planKutusuBagla(el,v,yenile){
   const sube=v.sinif||sinifSecenek()[0], sv=seviye(sube);
   const kaydetPlan=(p,kaynak)=>{
     if(!p||!p.satirlar.length){ bildir("Bu dosyada yıllık plan tablosu bulunamadı. Başka bir dosya deneyin ya da dosyayı bana gönderin."); return; }
-    p.kaynak=kaynak; S.yillik[sv]=p; kaydet(); bildir(`${sv}. sınıf planı yüklendi: ${p.satirlar.filter(r=>!r.ara).length} hafta`); yenile();
+    p.kaynak=kaynak; S.yillik[sube]=p; kaydet(); bildir(`${sube} planı yüklendi: ${p.satirlar.filter(r=>!r.ara).length} hafta`); yenile();
   };
   const sil=el.querySelector("[data-plan-sil]");
-  if(sil) sil.onclick=()=>{ if(confirm(`${sv}. sınıf yıllık planı silinsin mi?`)){ delete S.yillik[sv]; kaydet(); yenile(); } };
+  if(sil) sil.onclick=()=>{ if(confirm(`${sube} yıllık planı silinsin mi?`)){ delete S.yillik[sube]; delete S.yillik[sv]; kaydet(); yenile(); } };
   el.querySelector("[data-plan-dosya]").onchange=async e=>{
     const f=e.target.files[0]; if(!f) return; e.target.value="";
     try{
       const buf=await f.arrayBuffer();
+      if(/\.xlsx$/i.test(f.name)){ const adl=Object.keys(await xlsxSayfaAdlari(await zipOku(buf)));
+        if(adl.length>1){ const kutu=el.querySelector("[data-plan-secim]");
+          kutu.innerHTML=`<label>Excel'deki sayfalar <small>(${esc(sube)} için hangisi?)</small></label>`+adl.map((a,i)=>`<button class="evrak" style="margin-top:6px" data-sy="${i}"><b style="font-size:14px">${esc(a)}</b></button>`).join("");
+          kutu.querySelectorAll("[data-sy]").forEach(b=>b.onclick=async()=>{ try{ kaydetPlan(await planDosyasiOku(f.name,buf,adl[+b.dataset.sy]),f.name+" · "+adl[+b.dataset.sy]); }catch(err){ bildir("Sayfa okunamadı: "+err.message); } });
+          return; } }
       if(/\.(docx|xlsx)$/i.test(f.name)) return kaydetPlan(await planDosyasiOku(f.name,buf),f.name);
       const z=await zipOku(buf);
       const adlar=Object.keys(z).filter(k=>/\.(docx|xlsx)$/i.test(k)&&!/(^|\/)(~\$|__MACOSX)/.test(k));
@@ -943,7 +971,7 @@ function panelEkrani(sube){
   const p=planGetir(sube);
   const durum=(S.panel=S.panel||{});
   let i=p?(durum[sube]!=null&&durum[sube]<p.satirlar.length?durum[sube]:buHafta(p)):0;
-  const sekmeler=`<div class="sekmeler">${siniflar.map(x=>`<button class="sekme ${x===sube?"aktif":""}" data-sube="${esc(x)}">${esc(x)}</button>`).join("")}</div>`;
+  const sekmeler=`<div class="sekmeler">${siniflar.map(x=>`<button class="sekme ${x===sube?"aktif":""}" data-sube="${esc(x)}">${esc(x)}</button>`).join("")}<button class="sekme" id="sinifEkle" style="flex:0 0 auto" aria-label="Sınıf ekle">＋</button></div>`;
   if(!p){
     ekran("Haftalık Plan",`${sekmeler}<div data-ozel="planDosya">${planKutusuCiz({sinif:sube})}</div>
       <p class="ipucu">Yıllık plan dosyası (Word ya da Excel) bir kez yüklenir, sonra internetsiz de görünür.</p>`,{geri:anaSayfa});
@@ -988,6 +1016,8 @@ function panelEkrani(sube){
     kk.addEventListener("touchend",e=>{ if(x0==null) return; const dx=e.changedTouches[0].clientX-x0; x0=null; if(dx>70&&i>0) git(i-1); else if(dx<-70&&i<p.satirlar.length-1) git(i+1); });
   }
   document.querySelectorAll("[data-sube]").forEach(b=>b.onclick=()=>panelEkrani(b.dataset.sube));
+  const se=$("#sinifEkle"); if(se) se.onclick=()=>{ const a=prompt("Eklenecek sınıf (ör. 12/B):",""); if(!a||!a.trim()) return; const ad=a.trim().toLocaleUpperCase("tr-TR").replace(/^(\d+)\s*[-\/ ]?\s*([A-ZÇĞİÖŞÜ])$/,"$1/$2");
+    S.siniflar=sinifSecenek().slice(); if(!S.siniflar.includes(ad)) S.siniflar.push(ad); kaydet(); panelEkrani(ad); };
 }
 
 /* =========================================================
