@@ -1085,15 +1085,87 @@ function ozelOgrenciEkrani(ad){
       <label>Ders başı ücret (₺)</label><input id="ucret" type="number" inputmode="decimal" value="${o.ucret[ad]??""}">
       <p class="ipucu">Yeni ücret bundan sonra işaretlenen derslere uygulanır.</p>
       <div class="butonlar"><button class="btn" id="odemeEkle">💰 Ödeme al</button></div></div>
+    <div class="kart"><h2>📄 Veliye hesap özeti</h2>
+      <label>Dönem</label><select id="donem"><option value="bu">Bu ay</option><option value="gecen">Geçen ay</option><option value="tum">Tüm zamanlar</option></select>
+      <div class="butonlar"><button class="btn" id="pdfGonder">📤 PDF oluştur ve gönder</button></div>
+      <p class="ipucu">Paylaş ekranından WhatsApp'ı seçip veliye gönderebilirsiniz. Bu ay ya da geçen ay seçilirse önceki aylardan kalan borç "devir" olarak eklenir.</p></div>
     <div class="kart"><h2>Hareketler</h2>${hareket.map(x=>x.tur==="ders"
       ?`<div class="hareket"><span>${trTarih(x.tarih)} · ders ${x.y.durum==="geldi"?"✓":x.y.durum==="gelmedi"?"✗ gelmedi":"iptal"}</span><b>${x.y.durum==="geldi"?"+"+tl(x.y.ucret):"—"}</b></div>`
       :`<div class="hareket odeme"><span>${trTarih(x.tarih)} · ödeme${x.x.not?" ("+esc(x.x.not)+")":""}</span><b>−${tl(x.x.tutar)} <button class="yk" data-sil="${x.x.i}">Sil</button></b></div>`).join("")||"<p>Henüz hareket yok.</p>"}</div>
     <details><summary>Öğrenciyi kaldır</summary><p class="ipucu">Ücret bilgisi silinir; geçmiş dersler ve ödemeler kalır.</p><button class="btn tehlike" id="ogrSil">Kaldır</button></details>`,{geri:()=>programEkrani("ozel",{sekme:"odeme"})});
+  $("#pdfGonder").onclick=()=>{ const n=new Date(), v=$("#donem").value; let d=[null,null];
+    if(v==="bu") d=[isoTarih(new Date(n.getFullYear(),n.getMonth(),1)),isoTarih(new Date(n.getFullYear(),n.getMonth()+1,0))];
+    if(v==="gecen") d=[isoTarih(new Date(n.getFullYear(),n.getMonth()-1,1)),isoTarih(new Date(n.getFullYear(),n.getMonth(),0))];
+    hesapOzetiPaylas(ad,d); };
   $("#ucret").onchange=e=>{ o.ucret[ad]=+String(e.target.value).replace(",",".")||0; kaydet(); bildir("Ücret kaydedildi."); };
   $("#odemeEkle").onclick=()=>{ const t=prompt(`${ad} için alınan tutar (₺):`,h.kalan>0?String(h.kalan):""); if(!t) return; const tutar=+String(t).replace(",","."); if(!(tutar>0)) return; const not=prompt("Not (isteğe bağlı, ör. nakit / havale):","")||""; o.odemeler.push({ad,tarih:isoTarih(new Date()),tutar,not}); kaydet(); ozelOgrenciEkrani(ad); };
   document.querySelectorAll("[data-sil]").forEach(b=>b.onclick=()=>{ if(!confirm("Ödeme silinsin mi?")) return; o.odemeler.splice(+b.dataset.sil,1); kaydet(); ozelOgrenciEkrani(ad); });
   $("#ogrSil").onclick=()=>{ if(!confirm(ad+" kaldırılsın mı?")) return; delete o.ucret[ad]; kaydet(); programEkrani("ozel",{sekme:"odeme"}); };
 }
+/* ---------- Veliye hesap özeti PDF (sayfa görüntüsünden, kütüphanesiz) ---------- */
+function jpegPdf(sayfalar){ // sayfalar: [{veri:Uint8Array(jpeg), w, h}] → A4 PDF Blob
+  const enc=new TextEncoder(), parca=[], ofs=[]; let boy=0;
+  const ekle=x=>{ const b=typeof x==="string"?enc.encode(x):x; parca.push(b); boy+=b.length; };
+  const nesne=(no,govde)=>{ ofs[no]=boy; ekle(`${no} 0 obj\n`); govde.forEach(ekle); ekle("\nendobj\n"); };
+  ekle("%PDF-1.4\n%\xE2\xE3\xCF\xD3\n");
+  const n=sayfalar.length, kids=sayfalar.map((_,i)=>`${3+i*3} 0 R`).join(" ");
+  nesne(1,["<< /Type /Catalog /Pages 2 0 R >>"]);
+  nesne(2,[`<< /Type /Pages /Kids [${kids}] /Count ${n} >>`]);
+  sayfalar.forEach((s,i)=>{ const p=3+i*3, im=p+1, ic=p+2, cizim=`q 595.28 0 0 841.89 0 0 cm /Im0 Do Q`;
+    nesne(p,[`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595.28 841.89] /Resources << /XObject << /Im0 ${im} 0 R >> >> /Contents ${ic} 0 R >>`]);
+    nesne(im,[`<< /Type /XObject /Subtype /Image /Width ${s.w} /Height ${s.h} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${s.veri.length} >>\nstream\n`,s.veri,"\nendstream"]);
+    nesne(ic,[`<< /Length ${cizim.length} >>\nstream\n${cizim}\nendstream`]);
+  });
+  const xref=boy, top=3+n*3;
+  ekle(`xref\n0 ${top}\n0000000000 65535 f \n`+[...Array(top-1)].map((_,i)=>String(ofs[i+1]).padStart(10,"0")+" 00000 n \n").join(""));
+  ekle(`trailer\n<< /Size ${top} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF`);
+  return new Blob(parca,{type:"application/pdf"});
+}
+async function hesapOzetiPdf(ad,donem){
+  const o=ozelVeri(), W=1240, H=1754, M=90;
+  const [bas,bit]=donem; // "YYYY-MM-DD" ya da null
+  const ici=t=>(!bas||t>=bas)&&(!bit||t<=bit);
+  const tum=[...Object.entries(o.yoklama).filter(([k,y])=>y.ad===ad&&y.durum==="geldi").map(([k,y])=>({t:k.split("|")[0],ac:"Ders",tutar:+y.ucret||0})),
+             ...o.odemeler.filter(x=>x.ad===ad).map(x=>({t:x.tarih,ac:"Ödeme"+(x.not?` (${x.not})`:""),tutar:-(+x.tutar||0)}))].sort((a,b)=>a.t.localeCompare(b.t));
+  const devir=tum.filter(x=>bas&&x.t<bas).reduce((s,x)=>s+x.tutar,0);
+  const satirlar=tum.filter(x=>ici(x.t));
+  const dersSay=satirlar.filter(x=>x.tutar>=0&&x.ac==="Ders").length, ucretTop=satirlar.filter(x=>x.ac==="Ders").reduce((s,x)=>s+x.tutar,0), odeTop=-satirlar.filter(x=>x.ac!=="Ders").reduce((s,x)=>s+x.tutar,0);
+  const kalan=devir+ucretTop-odeTop;
+  const sayfalar=[]; let c,g,y;
+  const yeniSayfa=()=>{ c=document.createElement("canvas"); c.width=W; c.height=H; g=c.getContext("2d"); g.fillStyle="#fff"; g.fillRect(0,0,W,H); g.fillStyle="#111"; y=M; sayfalar.push(c); };
+  const yaz=(t,x,yy,{b,s=26,r,renk}={})=>{ g.font=`${b?"700 ":""}${s}px Roboto, "Segoe UI", Arial, sans-serif`; g.fillStyle=renk||"#111"; g.textAlign=r?"right":"left"; g.fillText(t,x,yy); g.textAlign="left"; };
+  yeniSayfa();
+  g.fillStyle="#1f5f8b"; g.fillRect(0,0,W,14);
+  yaz("ÖZEL DERS HESAP ÖZETİ",M,y+30,{b:true,s:40}); y+=80;
+  yaz(`Öğrenci: ${ad}`,M,y,{b:true,s:30}); y+=44;
+  yaz(`Öğretmen: ${S.okul.ogretmen}${S.okul.brans?" ("+S.okul.brans+")":""}`,M,y,{s:26}); y+=40;
+  yaz(`Dönem: ${bas?trTarih(bas):"Başlangıç"} – ${bit?trTarih(bit):trTarih(isoTarih(new Date()))}`,M,y,{s:26}); y+=40;
+  const ucret=o.ucret[ad]; if(ucret) { yaz(`Ders ücreti: ${tl(ucret)}`,M,y,{s:26}); y+=40; }
+  y+=20;
+  const baslik=()=>{ g.fillStyle="#e8eef4"; g.fillRect(M,y-34,W-2*M,50); yaz("Tarih",M+16,y,{b:true}); yaz("Açıklama",M+260,y,{b:true}); yaz("Tutar",W-M-16,y,{b:true,r:true}); y+=56; };
+  baslik();
+  const satirCiz=(t,ac,tutar,renk)=>{ if(y>H-260){ yeniSayfa(); baslik(); } yaz(t,M+16,y); yaz(ac,M+260,y); yaz(tutar,W-M-16,y,{r:true,renk}); g.strokeStyle="#ddd"; g.beginPath(); g.moveTo(M,y+16); g.lineTo(W-M,y+16); g.stroke(); y+=50; };
+  if(bas&&devir) satirCiz("","Önceki dönemden devir",tl(devir));
+  satirlar.forEach(x=>satirCiz(trTarih(x.t),x.ac,(x.tutar<0?"− ":"")+tl(Math.abs(x.tutar)),x.tutar<0?"#2c7a4b":null));
+  if(!satirlar.length) satirCiz("","Bu dönemde hareket yok","");
+  if(y>H-300){ yeniSayfa(); }
+  y+=20; g.fillStyle="#f6f8fa"; g.fillRect(M,y,W-2*M,200); y+=50;
+  yaz(`İşlenen ders: ${dersSay}`,M+24,y,{s:28}); yaz(`Ders ücretleri: ${tl(ucretTop)}`,W-M-24,y,{s:28,r:true}); y+=50;
+  yaz(`Ödenen: ${tl(odeTop)}`,W-M-24,y,{s:28,r:true}); y+=60;
+  yaz(kalan>0?"Kalan borç:":kalan<0?"Avans (fazla ödeme):":"Hesap kapalı",M+24,y,{b:true,s:34}); yaz(kalan?tl(Math.abs(kalan)):"",W-M-24,y,{b:true,s:34,r:true,renk:kalan>0?"#b4541a":"#2c7a4b"});
+  sayfalar.forEach((s,i)=>{ const gg=s.getContext("2d"); gg.font=`20px Roboto, Arial, sans-serif`; gg.fillStyle="#888"; gg.fillText(`Düzenlenme: ${trTarih(isoTarih(new Date()))}${sayfalar.length>1?`   ·   Sayfa ${i+1}/${sayfalar.length}`:""}`,M,H-60); });
+  const veri=await Promise.all(sayfalar.map(s=>new Promise(r=>s.toBlob(async b=>r({veri:new Uint8Array(await b.arrayBuffer()),w:W,h:H}),"image/jpeg",0.9))));
+  return jpegPdf(veri);
+}
+async function hesapOzetiPaylas(ad,donem){
+  try{
+    const pdf=await hesapOzetiPdf(ad,donem), adi=dosyaAdi(`Hesap_Ozeti_${ad}_${isoTarih(new Date())}`)+".pdf";
+    const f=new File([pdf],adi,{type:"application/pdf"});
+    if(navigator.canShare&&navigator.canShare({files:[f]})){ try{ await navigator.share({files:[f],title:`${ad} hesap özeti`}); }catch(_){} }
+    else indir(f,adi);
+  }catch(e){ console.error(e); bildir("PDF oluşturulamadı: "+e.message); }
+}
+
 /* Gizli bağlantıyla program aktarma: "#paket=..." (adres çubuğundaki bu kısım sunucuya gitmez) */
 function paketAc(){
   const m=location.hash.match(/^#paket=(.+)$/); if(!m) return false;
