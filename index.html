@@ -92,6 +92,11 @@ details summary{cursor:pointer;font-weight:600;color:var(--ana2);margin-top:10px
 .ders-icerik{flex:1;font-size:16px;font-weight:600;min-width:120px}
 .soluk{color:var(--soluk);font-weight:400}
 .tarih-git{display:block;margin:4px auto 0;padding:4px 6px;font-size:13px;max-width:160px}
+.rehber-giris{background:linear-gradient(135deg,#2c6e4f,#3a8a64)!important}
+.is-satir{display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-bottom:1px solid var(--cizgi);font-size:14px;font-weight:400}
+.is-satir input{width:22px;height:22px;flex:none;margin-top:2px}
+.hafta-liste{display:block;width:100%;text-align:left;background:none;border:0;border-bottom:1px solid var(--cizgi);padding:8px 2px;font:inherit;color:inherit}
+.hafta-liste span{display:block;font-size:13px}.hafta-liste span+span{color:var(--soluk);font-size:12px}.hafta-liste.aktif{background:#eef4f8}
 .mini-hesap{display:block;font-size:12px;font-weight:400;color:var(--soluk);margin-top:2px}
 .yoklama{display:flex;gap:4px;width:100%;padding-left:62px}
 .yk{flex:1;border:1px solid var(--cizgi);background:#fff;border-radius:8px;padding:7px 4px;font:inherit;font-size:13px}
@@ -708,11 +713,11 @@ Başarısı düşük öğrencilerin velileriyle bireysel görüşmeler yapılmas
     alanlar:[
       {id:"donem",ad:"Rapor dönemi",tur:"secim",secenek:["1. Dönem Sonu","Ders Yılı Sonu"],v:()=>{const m=new Date().getMonth();return m>=3&&m<=7?"Ders Yılı Sonu":"1. Dönem Sonu";}},
       {id:"tarih",ad:"Rapor tarihi",tur:"date",v:bugun},
-      {id:"etkinlik",ad:"Yapılan etkinlikler",ipucu:"Her satır: Tarih | Etkinlik / kazanım | Açıklama",tur:"metin",uzun:true,v:()=>`Eylül | Okula ve sınıfa uyum, tanışma etkinliği | Tüm sınıf katıldı
+      {id:"etkinlik",ad:"Yapılan etkinlikler",ipucu:"Her satır: Tarih | Etkinlik / kazanım | Açıklama",tur:"metin",uzun:true,v:()=>{ const m=new Date().getMonth(); const r=typeof rehberRaporSatirlari==="function"&&rehberRaporSatirlari(m>=3&&m<=7?"Ders Yılı Sonu":"1. Dönem Sonu"); return r||`Eylül | Okula ve sınıfa uyum, tanışma etkinliği | Tüm sınıf katıldı
 Ekim | Öğrenci bilgi formlarının doldurulması | Formlar rehberlik servisine teslim edildi
 Ekim | Ders çalışma yöntemleri ve zaman yönetimi | Tüm sınıf katıldı
 Kasım | Akran zorbalığı ve iletişim becerileri | Tüm sınıf katıldı
-Aralık | Sınav kaygısıyla başa çıkma | Tüm sınıf katıldı`},
+Aralık | Sınav kaygısıyla başa çıkma | Tüm sınıf katıldı`; }},
       {id:"bireysel",ad:"Öğrenci ile bireysel görüşme sayısı",tur:"number",v:()=>""},
       {id:"veliGor",ad:"Veli görüşmesi sayısı",tur:"number",v:()=>""},
       {id:"yonlendir",ad:"Rehberlik servisine yönlendirilen öğrenci sayısı",tur:"number",v:()=>""},
@@ -983,6 +988,79 @@ function panelEkrani(sube){
     kk.addEventListener("touchend",e=>{ if(x0==null) return; const dx=e.changedTouches[0].clientX-x0; x0=null; if(dx>70&&i>0) git(i-1); else if(dx<-70&&i<p.satirlar.length-1) git(i+1); });
   }
   document.querySelectorAll("[data-sube]").forEach(b=>b.onclick=()=>panelEkrani(b.dataset.sube));
+}
+
+/* =========================================================
+   SINIF REHBERLİK PLANI (haftalık panel + uygulandı takibi)
+   Plan içeriği repoya gömülmez; Word dosyasından ya da gizli bağlantıdan yüklenir.
+   ========================================================= */
+function rehberCikar(tablolar){
+  const n=t=>normAnahtar(t).replace(/_/g," ");
+  let satirlar=[], isler=[];
+  for(const t of tablolar){
+    const bi=t.findIndex(r=>r.some(x=>/KAZANIM/.test(n(x)))&&r.some(x=>/ETKINLIK/.test(n(x))));
+    if(bi>=0){ const b=t[bi].map(n), k=re=>b.findIndex(x=>re.test(x));
+      const c={ay:k(/^AY$/),hf:k(/^HF|HAFTA/),tarih:k(/^TARIH/),srp:k(/SRP|SIRA/),kaz:k(/KAZANIM/),alan:k(/GELISIM|ALAN/),etk:k(/ETKINLIK/)};
+      let ay="";
+      t.slice(bi+1).forEach(r=>{ if(!r[c.kaz]||!r[c.kaz].trim()) return; if(r[c.ay]&&r[c.ay].trim()) ay=r[c.ay].trim();
+        const [e1,e2]=String(r[c.etk]||"").split(/\n?\s*Alternatif\s*[–-]\s*/);
+        satirlar.push({ay,hf:(r[c.hf]||"").trim(),tarih:(r[c.tarih]||"").trim(),srp:(r[c.srp]||"").trim(),kaz:r[c.kaz].trim(),alan:(r[c.alan]||"").trim(),e1:(e1||"").trim(),e2:(e2||"").trim()}); });
+      continue; }
+    const ii=t.findIndex(r=>r.length>=2&&/^TARIH$/.test(n(r[0]||""))&&/^IS$/.test(n(r[1]||"")));
+    if(ii>=0) t.slice(ii+1).forEach(r=>{ if((r[1]||"").trim()) isler.push({tarih:(r[0]||"").trim(),is:r[1].trim(),dayanak:(r[2]||"").trim()}); });
+  }
+  return satirlar.length?{satirlar,isler}:null;
+}
+function rehberVeri(){ const r=S.rehber; if(!r) return null; r.uyg=r.uyg||{}; r.isDurum=r.isDurum||{}; return r; }
+function rehberBuHafta(r){ const simdi=new Date(); let son=0;
+  for(let i=0;i<r.satirlar.length;i++){ const a=haftaAraligi(r.satirlar[i].tarih); if(!a) continue; son=i; if(simdi<=a[1]) return i; } return son; }
+function rehberYukleKutusu(){ return `<div class="kart"><h2>Rehberlik planını yükleyin</h2><p>Sınıf rehberlik planı Word dosyasını (.docx) seçin. Bir kez yüklenir, sonra internetsiz de görünür.</p>
+  <input type="file" id="rehberDosya" accept=".docx"></div>`; }
+function rehberYukleBagla(sonra){ const f=$("#rehberDosya"); if(!f) return; f.onchange=async()=>{ const d=f.files[0]; if(!d) return;
+  try{ const r=rehberCikar(await docxTablolar(await d.arrayBuffer())); if(!r) throw new Error("Planda kazanım tablosu bulunamadı");
+    const eski=S.rehber||{}; S.rehber={...r,uyg:eski.uyg||{},isDurum:eski.isDurum||{}}; kaydet(); bildir(`Rehberlik planı yüklendi: ${r.satirlar.length} hafta`); sonra(); }
+  catch(e){ bildir("Okunamadı: "+e.message); } }; }
+function rehberEkrani(i){
+  const r=rehberVeri();
+  if(!r){ ekran("Rehberlik Planı",rehberYukleKutusu(),{geri:anaSayfa}); rehberYukleBagla(()=>rehberEkrani()); return; }
+  const bu=rehberBuHafta(r); if(i==null) i=bu; i=Math.max(0,Math.min(r.satirlar.length-1,i));
+  const w=r.satirlar[i], u=r.uyg[w.hf||i], yapilan=Object.keys(r.uyg).length, bugunIso=isoTarih(new Date());
+  const blok=(et,t)=>t?`<div class="pbolum"><div class="petiket">${et}</div><div class="pmetin">${esc(t).replace(/\n/g,"<br>")}</div></div>`:"";
+  const isTarihi=t=>{ const m=String(t).match(/(\d{1,2})\s+([A-Za-zÇĞİÖŞÜçğıöşü]+)\s+(\d{4})/); if(m&&ayNo(m[2])>=0) return new Date(+m[3],ayNo(m[2]),+m[1]); const a=String(t).match(/([A-Za-zÇĞİÖŞÜçğıöşü]+)[^0-9]*(\d{4})/); if(a&&ayNo(a[1])>=0) return new Date(+a[2],ayNo(a[1])+1,0); return null; };
+  ekran(`${esc(S.okul.sube||"")} Rehberlik Planı`,`
+    <div class="hafta-nav">
+      <button class="nav-ok" id="rOnceki" ${i<=0?"disabled":""}>‹</button>
+      <div class="hafta-bilgi"><b>${esc(w.tarih)}</b><span>${esc(w.hf)}. hafta · ${esc(w.ay.charAt(0)+w.ay.slice(1).toLocaleLowerCase("tr-TR"))}${i===bu?" · <em>bu hafta</em>":""}</span></div>
+      <button class="nav-ok" id="rSonraki" ${i>=r.satirlar.length-1?"disabled":""}>›</button>
+    </div>
+    <div class="kart plan-kart ${S.panelBuyuk?"buyuk":""}">
+      ${blok("Kazanım"+(w.srp?` (SRP ${esc(w.srp)})`:""),w.kaz)}${blok("Gelişim alanı / yeterlik",w.alan)}${blok("Etkinlik",w.e1)}${blok("Alternatif etkinlik",w.e2)}
+    </div>
+    <div class="kart">${u?`<p>✅ <b>Uygulandı:</b> ${trTarih(u.tarih)} · ${u.etk==="2"?"alternatif etkinlik":"etkinlik"}</p><div class="butonlar"><button class="btn ikincil" id="rGeri">Geri al</button></div>`
+      :`<label>Uygulama tarihi</label><input type="date" id="rTarih" value="${bugunIso}"><div class="butonlar"><button class="btn" data-ruyg="1">✓ Etkinlik uygulandı</button>${w.e2?`<button class="btn ikincil" data-ruyg="2">✓ Alternatif uygulandı</button>`:""}</div>`}
+      <p class="ipucu">${yapilan} / ${r.satirlar.length} hafta uygulandı olarak işaretli.</p></div>
+    <div class="butonlar">${i===bu?"":`<button class="btn ikincil" id="rBugun">Bu haftaya dön</button>`}</div>
+    ${r.isler.length?`<div class="kart"><h2>Zamanlı işler</h2>${r.isler.map((x,j)=>{ const d=isTarihi(x.tarih), gec=!r.isDurum[j]&&d&&d<new Date(); return `<label class="is-satir"><input type="checkbox" data-ris="${j}" ${r.isDurum[j]?"checked":""}><span><b class="${gec?"borc":""}">${esc(x.tarih)}</b><br>${esc(x.is)}</span></label>`; }).join("")}</div>`:""}
+    <details><summary>Tüm haftalar</summary>${r.satirlar.map((x,j)=>`<button class="hafta-liste ${j===i?"aktif":""}" data-rgit="${j}"><span>${r.uyg[x.hf||j]?"✅":"▫️"} ${esc(x.hf)}. ${esc(x.tarih)}</span><span>${esc(x.kaz)}</span></button>`).join("")}</details>
+    <details><summary>Plan dosyasını değiştir</summary>${rehberYukleKutusu()}</details>`,{geri:anaSayfa});
+  const git=n=>{ rehberEkrani(n); window.scrollTo(0,0); };
+  $("#rOnceki").onclick=()=>git(i-1); $("#rSonraki").onclick=()=>git(i+1);
+  const rb=$("#rBugun"); if(rb) rb.onclick=()=>git(bu);
+  document.querySelectorAll("[data-ruyg]").forEach(b=>b.onclick=()=>{ r.uyg[w.hf||i]={tarih:$("#rTarih").value||bugunIso,etk:b.dataset.ruyg}; kaydet(); rehberEkrani(i); });
+  const rg=$("#rGeri"); if(rg) rg.onclick=()=>{ delete r.uyg[w.hf||i]; kaydet(); rehberEkrani(i); };
+  document.querySelectorAll("[data-ris]").forEach(c=>c.onchange=()=>{ if(c.checked) r.isDurum[c.dataset.ris]=true; else delete r.isDurum[c.dataset.ris]; kaydet(); rehberEkrani(i); });
+  document.querySelectorAll("[data-rgit]").forEach(b=>b.onclick=()=>git(+b.dataset.rgit));
+  rehberYukleBagla(()=>rehberEkrani());
+  let x0=null; const kk=$(".plan-kart");
+  kk.addEventListener("touchstart",e=>{x0=e.touches[0].clientX;},{passive:true});
+  kk.addEventListener("touchend",e=>{ if(x0==null) return; const dx=e.changedTouches[0].clientX-x0; x0=null; if(dx>70&&i>0) git(i-1); else if(dx<-70&&i<r.satirlar.length-1) git(i+1); });
+}
+/* Rehberlik raporu için: uygulanan haftalardan etkinlik listesi */
+function rehberRaporSatirlari(donem){
+  const r=rehberVeri(); if(!r||!Object.keys(r.uyg).length) return null;
+  const y1=+(String(S.okul.yil).match(/\d{4}/)||[new Date().getFullYear()])[0], sinir=`${y1+1}-01-31`;
+  return r.satirlar.filter((x,j)=>r.uyg[x.hf||j]).map((x,j)=>({x,u:r.uyg[x.hf||j]})).filter(({u})=>donem==="Ders Yılı Sonu"||u.tarih<=sinir).sort((a,b)=>a.u.tarih.localeCompare(b.u.tarih))
+    .map(({x,u})=>`${trTarih(u.tarih)} | ${x.kaz} (${((u.etk==="2"?x.e2:x.e1)||"").replace(/^\d\.\s*Cilt:\s*/,"").replace(/\s*[–-]\s*s\.\s*\d+.*$/,"")}) | Tüm sınıf katıldı`).join("\n");
 }
 
 /* =========================================================
@@ -1293,6 +1371,8 @@ function paketAc(){
   history.replaceState(null,"",location.pathname);
   try{
     const b=atob(m[1].replace(/-/g,"+").replace(/_/g,"/")), j=JSON.parse(new TextDecoder().decode(Uint8Array.from(b,c=>c.charCodeAt(0))));
+    if(j.rehber&&!j.programlar){ if(!confirm(`Sınıf rehberlik planı yüklensin mi? (${j.rehber.satirlar.length} hafta)`)) return true;
+      const eski=S.rehber||{}; S.rehber={...j.rehber,uyg:eski.uyg||{},isDurum:eski.isDurum||{}}; kaydet(); bildir("Rehberlik planı yüklendi."); rehberEkrani(); return true; }
     if(j.gizle&&!j.programlar){ if(!confirm(`Şu öğrenciler ödeme listesinden çıkarılsın mı?\n${j.gizle.join(", ")}\n(Programda ve yoklamada kalırlar.)`)) return true;
       const o=ozelVeri(); j.gizle.forEach(a=>o.gizli[a]=true); kaydet(); bildir("Ödeme listesi güncellendi."); anaSayfa(); return true; }
     const adlar=Object.keys(j.programlar||{}).map(x=>PROGRAM_TURLERI[x]?.ad||x).join(", ");
@@ -1393,12 +1473,13 @@ function anaSayfa(){
   ekran("Evrak Defterim",`
     <div class="kart"><h2>${esc(o.okul||"Okulunuz")}</h2><p>${esc(o.ogretmen)} · ${esc(o.brans)} · ${esc(o.sube)} rehber öğretmeni · ${S.ogrenciler.length} öğrenci · ${esc(o.yil)}</p></div>
     <button class="evrak panel-giris" id="panelGit"><span class="sim">📖</span><b>Haftalık Plan</b><span>${sinifSecenek().map(x=>{const p=planGetir(x); if(!p) return `${esc(x)}: plan yüklenmedi`; const r=p.satirlar[buHafta(p)]; return `${esc(x)}: ${esc((satirDeger(p,r,"konu")||satirDeger(p,r,"tema")||r.h.find(Boolean)||"").split("\n")[0])}`;}).join("<br>")}</span></button>
+    <button class="evrak panel-giris rehber-giris" id="rehberGit"><span class="sim">🧭</span><b>Rehberlik Planı</b><span>${(()=>{ const r=rehberVeri(); if(!r) return "plan yüklenmedi"; const w=r.satirlar[rehberBuHafta(r)]; return `${esc(w.hf)}. hafta: ${esc(w.kaz)}${r.uyg[w.hf]?" ✅":""}`; })()}</span></button>
     <div class="prog-izgara">${Object.entries(PROGRAM_TURLERI).map(([k,t])=>{ const p=prog(k); return `<button class="evrak" data-prog="${k}"><span class="sim">${t.sim}</span><b>${t.ad}</b><span>${p?esc(sonrakiDers(p)):"yüklenmedi"}</span></button>`; }).join("")}</div>
     <div class="izgara">${EVRAK_SIRASI.map(id=>[id,EVRAKLAR[id]]).map(([id,e])=>`<button class="evrak" data-ev="${id}"><span class="sim">${e.sim}</span><b>${e.ad}</b><span>${e.acik}</span></button>`).join("")}</div>
     <div class="butonlar"><button class="btn ikincil" id="ayar">⚙️ Bilgilerim</button><button class="btn ikincil" id="yedek">💾 Yedek ve eşitleme</button></div>
     <p class="ipucu" style="text-align:center;margin-top:16px">Tüm bilgiler yalnızca bu telefonda saklanır.</p>`);
   document.querySelectorAll("[data-ev]").forEach(b=>b.onclick=()=>evrakForm(b.dataset.ev));
-  $("#panelGit").onclick=()=>panelEkrani();
+  $("#panelGit").onclick=()=>panelEkrani(); $("#rehberGit").onclick=()=>rehberEkrani();
   document.querySelectorAll("[data-prog]").forEach(b=>b.onclick=()=>programEkrani(b.dataset.prog));
   $("#ayar").onclick=()=>kurulum(false); $("#yedek").onclick=yedekEkrani;
 }
