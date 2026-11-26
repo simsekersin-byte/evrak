@@ -1167,7 +1167,9 @@ function programEkrani(k,secenek={}){
       ${kurs?(()=>{ const ek=Object.entries(kv.ekstra).filter(([key])=>key.startsWith(d.tarih+"|")); return ek.map(([key,e])=>`<div class="ders-satir"><div class="ders-saat">ekstra</div><div class="ders-icerik">${e.adet} ders${e.not?" · "+esc(e.not):""}</div><div class="yoklama"><button class="yk" data-kek-sil="${key}">Sil</button></div></div>`).join("")+`<div class="butonlar"><button class="btn ikincil" id="kursEkstra">+ Ekstra / telafi dersi</button></div>`; })():""}
       ${ozel?`<div class="butonlar"><button class="btn ikincil" id="ekstraEkle">+ Ekstra / telafi dersi</button></div>`:`<p class="ipucu">Değiştirmek için bir derse dokunun.</p>`}`;
   }
-  ekran(tur.ad,`${sekme}${gorunumBtn}${govde}${p.not?`<p class="ipucu">📌 ${esc(p.not)}</p>`:""}`,{geri:anaSayfa});
+  const uyari=k==="meb"?`<div class="kart"><h2>🔔 Ders uyarısı</h2><p class="ipucu">Her dersten 1 dakika önce telefon takviminiz uyarı verir. Uygulama kapalıyken de çalışır.</p><div class="butonlar"><button class="btn" id="takvimUyari">Uyarıları takvime ekle</button></div></div>`:"";
+  ekran(tur.ad,`${sekme}${gorunumBtn}${govde}${uyari}${p.not?`<p class="ipucu">📌 ${esc(p.not)}</p>`:""}`,{geri:anaSayfa});
+  const tu=$("#takvimUyari"); if(tu) tu.onclick=()=>takvimUyariPaylas(k);
   const yenile=(x={})=>{ const y=window.scrollY; programEkrani(k,x); window.scrollTo(0,y); };
   document.querySelectorAll("[data-sk]").forEach(b=>b.onclick=()=>programEkrani(k,{sekme:b.dataset.sk}));
   document.querySelectorAll("[data-gr]").forEach(b=>b.onclick=()=>programEkrani(k,{gorunum:b.dataset.gr}));
@@ -1184,6 +1186,36 @@ function programEkrani(k,secenek={}){
   document.querySelectorAll("[data-kek-sil]").forEach(b=>b.onclick=()=>{ delete kv.ekstra[b.dataset.kekSil]; kaydet(); yenile(); });
   const ke=$("#kursEkstra"); if(ke) ke.onclick=()=>{ const a=prompt("Kaç ders (saat) yapıldı?","2"); const adet=parseInt(a); if(!(adet>0)) return; const not=prompt("Not (ör. sınıf adı, isteğe bağlı):","")||""; kv.ekstra[d.tarih+"|x|"+Date.now()]={adet,not}; kaydet(); yenile(); };
   const ee=$("#ekstraEkle"); if(ee) ee.onclick=()=>{ const ad=prompt("Öğrencinin adı:"); if(!ad||!ad.trim()) return; const saat=prompt("Saat (ör. 20:00):","")||""; const key=d.tarih+"|x|"+Date.now(); o.ekstra[key]={ad:ad.trim(),saat}; kaydet(); yenile(); };
+}
+/* ---------- Ders uyarıları: haftalık tekrarlı takvim (.ics), 1 dk önce alarm ---------- */
+function okulTatilGunleri(){ // yüklü yıllık planlardaki ara tatil haftaları ve haftalar arası boşluklar
+  const okul=new Set(); let ilk=null, son=null;
+  Object.values(S.yillik||{}).forEach(pl=>pl&&pl.satirlar&&pl.satirlar.forEach(r=>{ if(r.ara) return; const a=satirAraligi(pl,r); if(!a) return;
+    for(const x=new Date(a[0]); x<=a[1]; x.setDate(x.getDate()+1)){ const iso=isoTarih(x); okul.add(iso); if(!ilk||iso<ilk) ilk=iso; if(!son||iso>son) son=iso; } }));
+  const tatil=new Set(); if(!ilk) return {tatil,son:null};
+  for(const x=new Date(ilk+"T12:00"); isoTarih(x)<=son; x.setDate(x.getDate()+1)){ const g=gunNo(x); if(g<5&&!okul.has(isoTarih(x))) tatil.add(isoTarih(x)); }
+  return {tatil,son};
+}
+function takvimIcs(k){
+  const p=prog(k), {tatil,son}=okulTatilGunleri(), bugun=new Date();
+  const y1=+(String(S.okul.yil).match(/\d{4}/)||[bugun.getFullYear()])[0], bitis=son||`${y1+1}-06-30`;
+  const utc=(iso,hm)=>{ const [h,m]=hm.split(":").map(Number); const d=new Date(Date.UTC(+iso.slice(0,4),+iso.slice(5,7)-1,+iso.slice(8,10),h-3,m)); return d.toISOString().replace(/[-:]/g,"").slice(0,15)+"Z"; };
+  const kac=t=>String(t).replace(/[\\;,]/g,m=>"\\"+m).replace(/\n/g,"\\n");
+  const satir=["BEGIN:VCALENDAR","VERSION:2.0","PRODID:-//Evrak Defterim//TR","CALSCALE:GREGORIAN","METHOD:PUBLISH"], damga=new Date().toISOString().replace(/[-:]/g,"").slice(0,15)+"Z";
+  Object.entries(p.hucre).forEach(([key,ders])=>{ ders=(ders||"").trim(); if(!ders) return; const [g,j]=key.split("|").map(Number), s=p.saatler[j]; if(!s||!s.bas) return;
+    const x=new Date(bugun.getFullYear(),bugun.getMonth(),bugun.getDate(),12); while(gunNo(x)!==g) x.setDate(x.getDate()+1); const ilk=isoTarih(x);
+    const haric=[...tatil].filter(t=>t>=ilk&&gunNo(new Date(t+"T12:00"))===g).map(t=>utc(t,s.bas));
+    satir.push("BEGIN:VEVENT",`UID:evrak-${k}-${g}-${j}@evrakdefterim`,`DTSTAMP:${damga}`,`DTSTART:${utc(ilk,s.bas)}`,`DTEND:${utc(ilk,s.bit||s.bas)}`,
+      `RRULE:FREQ=WEEKLY;UNTIL=${utc(bitis,"23:59")}`,...(haric.length?[`EXDATE:${haric.join(",")}`]:[]),`SUMMARY:${kac(ders)}`,`DESCRIPTION:${kac(`${j+1}. ders · ${s.bas}-${s.bit}`)}`,
+      "BEGIN:VALARM","ACTION:DISPLAY",`DESCRIPTION:${kac(ders+" dersi 1 dakika sonra")}`,"TRIGGER:-PT1M","END:VALARM","END:VEVENT"); });
+  satir.push("END:VCALENDAR");
+  return satir.join("\r\n");
+}
+async function takvimUyariPaylas(k){
+  const p=prog(k); if(!p||!Object.values(p.hucre).some(Boolean)) return bildir("Programda ders yok.");
+  const adi=`ders-uyarilari-${k}.ics`, f=new File([takvimIcs(k)],adi,{type:"text/calendar"});
+  if(navigator.canShare&&navigator.canShare({files:[f]})){ try{ await navigator.share({files:[f],title:"Ders uyarıları"}); return; }catch(_){ } }
+  indir(f,adi); bildir("Dosya indirildi. Açıp Takvim ile içe aktarın.");
 }
 /* ---------- 5K kurs ödemesi: ayın 1'inden 1'ine, ders başı ücret ---------- */
 function kursVeri(){ S.kurs=S.kurs||{}; const v=S.kurs;
@@ -1507,7 +1539,7 @@ function anaSayfa(){
     <div class="prog-izgara">${Object.entries(PROGRAM_TURLERI).map(([k,t])=>{ const p=prog(k); return `<button class="evrak" data-prog="${k}"><span class="sim">${t.sim}</span><b>${t.ad}</b><span>${p?esc(sonrakiDers(p)):"yüklenmedi"}</span></button>`; }).join("")}</div>
     <div class="izgara">${EVRAK_SIRASI.map(id=>[id,EVRAKLAR[id]]).map(([id,e])=>`<button class="evrak" data-ev="${id}"><span class="sim">${e.sim}</span><b>${e.ad}</b><span>${e.acik}</span></button>`).join("")}</div>
     <div class="butonlar"><button class="btn ikincil" id="ayar">⚙️ Bilgilerim</button><button class="btn ikincil" id="yedek">💾 Yedek ve eşitleme</button></div>
-    <p class="ipucu" style="text-align:center;margin-top:16px">Tüm bilgiler yalnızca bu telefonda saklanır.<br><small>Sürüm 20</small></p>`);
+    <p class="ipucu" style="text-align:center;margin-top:16px">Tüm bilgiler yalnızca bu telefonda saklanır.<br><small>Sürüm 21</small></p>`);
   document.querySelectorAll("[data-ev]").forEach(b=>b.onclick=()=>evrakForm(b.dataset.ev));
   $("#panelGit").onclick=()=>panelEkrani(); $("#rehberGit").onclick=()=>rehberEkrani();
   document.querySelectorAll("[data-prog]").forEach(b=>b.onclick=()=>programEkrani(b.dataset.prog));
