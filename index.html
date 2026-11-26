@@ -1467,6 +1467,57 @@ async function dersleriExceldenAl(buf){
   const l=[]; for(const r of rows.slice(bas+1)){ const d=(r[cD]||"").trim(), o=(r[cD+1]||"").trim(); if(!d||/^TOPLAM/.test(normAnahtar(d))) break; l.push({ders:d,ad:o}); }
   return l;
 }
+/* =========================================================
+   PROJE ÖDEVİ ÖRNEKLERİ (Matematik, 9 ve 10. sınıf)
+   Özgün örnekler; her biri öğrenciye gönderilebilir yönergeyle.
+   ========================================================= */
+const PROJE_ORNEKLERI={
+  "9":[
+    {ad:"Okulumuzun Sayı Haritası",konu:"Sayılar",is:"Okulda sayılarla ifade edilen bilgileri (öğrenci sayısı, sınıf alanları, merdiven basamakları, zil süreleri) toplar; doğal, tam, rasyonel ve gerçek sayı örneklerini sınıflandırır.",urun:"Sayı kümelerini gösteren afiş ya da sunum",sure:"3 hafta"},
+    {ad:"Bölünebilme ile Şifre Kontrolü",konu:"Sayılar / Bölünebilme",is:"T.C. kimlik no, ISBN ve barkodlardaki kontrol basamağının bölünebilme ve kalan hesabıyla nasıl çalıştığını araştırır, kendi örneklerinde doğrular.",urun:"Örnek çözümlü rapor ve sınıf sunumu",sure:"3 hafta"},
+    {ad:"EBOB-EKOK ile Fayans ve Takvim Problemleri",konu:"Sayılar / EBOB-EKOK",is:"Odasının ya da sınıfın zeminini en büyük kare fayansla döşeme ve iki olayın aynı güne denk gelmesi gibi gerçek durumlar kurar, EBOB-EKOK ile çözer.",urun:"Ölçekli çizim ve problem kitapçığı",sure:"2 hafta"},
+    {ad:"Telefon Tarifesi Karşılaştırma",konu:"Doğrusal fonksiyonlar",is:"İki ya da üç gerçek tarifenin aylık ücretini kullanıma göre doğrusal fonksiyon olarak yazar, grafiklerini çizer ve hangi kullanımda hangisinin avantajlı olduğunu gösterir.",urun:"Grafikli karşılaştırma raporu",sure:"3 hafta"},
+    {ad:"Taksi Ücreti ve Parçalı Fonksiyon",konu:"Fonksiyonlar",is:"Şehrindeki taksi, dolmuş ya da otopark ücretlerini araştırır; açılış ücreti ve km/saat ücretini fonksiyon olarak modeller, tablo ve grafikle sunar.",urun:"Bilgi kartı ve grafik",sure:"2 hafta"},
+    {ad:"Mutlak Değer ile Hata Payı",konu:"Mutlak değer, eşitsizlikler",is:"Mutfak tartısı, termometre ya da cetvel gibi ölçüm araçlarının hata payını araştırır; ölçümleri |x − a| ≤ h biçiminde ifade eder ve sayı doğrusunda gösterir.",urun:"Ölçüm deney raporu",sure:"2 hafta"},
+    {ad:"Okul Bahçesinde Üçgenler",konu:"Üçgenler",is:"Okul bahçesinde ya da binasında üçgen biçimli yapıları fotoğraflar, kenar ve açılarını ölçer, üçgen eşitsizliğini ve açı özelliklerini bu örneklerle doğrular.",urun:"Fotoğraflı ölçüm albümü",sure:"3 hafta"},
+    {ad:"Gölge ile Yükseklik Ölçme",konu:"Benzerlik",is:"Benzer üçgenleri kullanarak bayrak direği, ağaç ya da bina yüksekliğini gölge yöntemiyle ölçer; farklı saatlerde ölçümleri karşılaştırır.",urun:"Ölçüm raporu ve çizimler",sure:"2 hafta"},
+    {ad:"Pisagor ile Ekran Boyutu",konu:"Dik üçgen, Pisagor",is:"Telefon, tablet ve televizyon ekranlarının inç ölçüsünü köşegen olarak hesaplar, en-boy oranlarını karşılaştırır.",urun:"Tablo ve kısa sunum",sure:"2 hafta"},
+    {ad:"Günlük Hayatta Algoritma",konu:"Algoritma ve bilişim",is:"Bir sayının asal olup olmadığını, EBOB'unu ya da bir problemi adım adım çözen algoritmayı akış şeması ile yazar; isteyen öğrenci blok tabanlı kodlamayla dener.",urun:"Akış şeması ve örnek çalıştırmalar",sure:"3 hafta"},
+    {ad:"Sınıfımızın İstatistiği",konu:"İstatistiksel araştırma süreci",is:"Bir araştırma sorusu belirler (uyku süresi, ekran süresi, okula geliş süresi), sınıftan veri toplar, uygun grafiklerle gösterir ve ortalama, ortanca, açıklık ile yorumlar.",urun:"Araştırma posteri",sure:"3 hafta"},
+    {ad:"Zar ve Para ile Olasılık Deneyi",konu:"Veriden olasılığa",is:"Zar ya da madeni parayı 100 kez atar, deneysel olasılığı hesaplar ve teorik olasılıkla karşılaştırır; deneme sayısı arttıkça ne olduğunu grafikle gösterir.",urun:"Deney raporu ve grafik",sure:"2 hafta"}
+  ],
+  "10":[
+    {ad:"Okul Kantininde Fonksiyonlar",konu:"Fonksiyonlar",is:"Kantinde satılan bir ürünün satış adedi, gelir ve kâr ilişkisini fonksiyon olarak kurar; bire bir, örten ve ters fonksiyon kavramlarını bu örnekle açıklar.",urun:"Rapor ve sunum",sure:"3 hafta"},
+    {ad:"Fonksiyon Grafikleriyle Sanat",konu:"Fonksiyon grafikleri ve dönüşümler",is:"Doğrusal, mutlak değer ve parabol grafiklerini öteleme ve yansıtma ile kullanarak bir resim (yüz, logo, manzara) oluşturur; kullandığı denklemleri listeler.",urun:"Grafik çizimi (kağıt ya da GeoGebra) ve denklem listesi",sure:"3 hafta"},
+    {ad:"Kaç Farklı Şifre?",konu:"Sayma, permütasyon, kombinasyon",is:"Telefon kilidi, araç plakası, kart şifresi gibi sistemlerde kaç farklı olasılık olduğunu sayma yöntemleriyle hesaplar ve hangisinin daha güvenli olduğunu tartışır.",urun:"Karşılaştırma afişi",sure:"2 hafta"},
+    {ad:"Pascal Üçgeninin Gizemleri",konu:"Binom açılımı",is:"Pascal üçgenini en az 10 satır oluşturur; satır toplamları, simetri, Fibonacci ve binom katsayılarıyla ilişkilerini örneklerle gösterir.",urun:"Büyük boy poster",sure:"2 hafta"},
+    {ad:"Sınav Takvimi Olasılığı",konu:"Olasılık",is:"Sınıf listesi, doğum günleri ya da sınav sıralamaları üzerinden koşullu ve bağımsız olay örnekleri kurar; doğum günü problemini sınıf verisiyle dener.",urun:"Deney ve hesap raporu",sure:"2 hafta"},
+    {ad:"Polinomlarla Kutu Tasarımı",konu:"Polinomlar",is:"Kartondan köşeleri kesilerek yapılan üstü açık kutunun hacmini kesilen kare kenarına bağlı polinom olarak yazar, farklı değerlerde kutular yapıp en büyük hacmi arar.",urun:"Kutu modelleri ve hacim tablosu",sure:"3 hafta"},
+    {ad:"Parabol Nerede?",konu:"İkinci dereceden fonksiyonlar",is:"Basket atışı, su fıskiyesi, köprü kemeri gibi parabol biçimli örneklerin fotoğrafını çeker; tepe noktası ve kökleri yaklaşık olarak bularak denklemini yazar.",urun:"Fotoğraflı sunum",sure:"3 hafta"},
+    {ad:"Çokgenlerle Süsleme",konu:"Çokgenler",is:"Düzgün çokgenlerin iç açılarını hesaplar, hangilerinin düzlemi boşluksuz kapladığını araştırır ve kendi süsleme (mozaik) desenini tasarlar.",urun:"Süsleme deseni ve açı hesapları",sure:"2 hafta"},
+    {ad:"Dörtgenler Ailesi",konu:"Dörtgenler",is:"Kare, dikdörtgen, paralelkenar, eşkenar dörtgen, yamuk ve deltoidin özelliklerini karşılaştıran bir kavram haritası ya da üç boyutlu model hazırlar.",urun:"Kavram haritası veya model",sure:"2 hafta"},
+    {ad:"Prizma ve Piramit Ambalajlar",konu:"Katı cisimler",is:"Market ürünlerinin ambalajlarını inceler; açınımlarını çizer, yüzey alanı ve hacimlerini hesaplar, daha az malzemeyle aynı hacmi sağlayan bir ambalaj önerir.",urun:"Ambalaj modeli ve hesap raporu",sure:"3 hafta"},
+    {ad:"İki Kategorik Değişkenli Veri Araştırması",konu:"İstatistik",is:"Hazır bir veri setini (TÜİK, okul anketi) iki kategorik değişkene göre çapraz tabloya döker; oranları karşılaştırarak bir yorum yazar.",urun:"Çapraz tablo ve yorum raporu",sure:"2 hafta"},
+    {ad:"Matematik Tarihinden Bir İsim",konu:"Genel",is:"Ömer Hayyam, Harezmî, Cahit Arf ya da Uluğ Bey gibi bir matematikçinin hayatını ve 10. sınıf konularıyla bağlantılı bir çalışmasını araştırır.",urun:"Biyografi sunumu",sure:"2 hafta"}
+  ]
+};
+const PROJE_DEGERLENDIRME="Değerlendirme: Konuya uygunluk ve matematiksel doğruluk (40), araştırma ve veri kullanımı (20), özgünlük ve yaratıcılık (20), sunum ve teslim süresi (20).";
+function projeMetni(sube,x){ return `${sube} Matematik Proje Ödevi\n\nKonu: ${x.ad}\nİlgili konu: ${x.konu}\n\nYapılacaklar: ${x.is}\n\nÜrün: ${x.urun}\nSüre: ${x.sure}\n\n${PROJE_DEGERLENDIRME}\n\nÖğretmen: ${S.okul.ogretmen||""}`; }
+function projeOrnekEkrani(sube){
+  const siniflar=sinifSecenek().filter(x=>PROJE_ORNEKLERI[seviye(x)]); if(!siniflar.length) siniflar.push("9/C","10/C");
+  sube=sube&&siniflar.includes(sube)?sube:siniflar[0]; const liste=PROJE_ORNEKLERI[seviye(sube)]||[];
+  ekran("Proje Örnekleri",`<div class="sekmeler">${siniflar.map(x=>`<button class="sekme ${x===sube?"aktif":""}" data-ps="${esc(x)}">${esc(x)}</button>`).join("")}</div>
+    <p class="ipucu">Matematik dersi için ${liste.length} örnek. Birine dokunun, ayrıntıları açılır. "Gönder" ile yönergeyi WhatsApp'tan öğrenciye ya da gruba atabilirsiniz.</p>
+    ${liste.map((x,i)=>`<details class="kart"><summary><b>${i+1}. ${esc(x.ad)}</b><br><small class="soluk">${esc(x.konu)}</small></summary>
+      <p><b>Yapılacaklar:</b> ${esc(x.is)}</p><p><b>Ürün:</b> ${esc(x.urun)}<br><b>Süre:</b> ${esc(x.sure)}</p>
+      <div class="butonlar"><button class="btn ikincil" data-pg="${i}">📤 Gönder</button></div></details>`).join("")}
+    <p class="ipucu">${esc(PROJE_DEGERLENDIRME)}</p>`,{geri:anaSayfa});
+  document.querySelectorAll("[data-ps]").forEach(b=>b.onclick=()=>projeOrnekEkrani(b.dataset.ps));
+  document.querySelectorAll("[data-pg]").forEach(b=>b.onclick=async()=>{ const t=projeMetni(sube,liste[+b.dataset.pg]);
+    if(navigator.share){ try{ await navigator.share({text:t}); return; }catch(_){ return; } }
+    try{ await navigator.clipboard.writeText(t); bildir("Metin kopyalandı."); }catch(_){ bildir("Paylaşılamadı."); } });
+}
+
 function projeDagitimCiz(v){
   const dl=dersListesi(), at=v.atama||{}, say={};
   for(const k in at) if(at[k]) say[at[k]]=(say[at[k]]||0)+1;
@@ -1537,11 +1588,11 @@ function anaSayfa(){
     <button class="evrak panel-giris" id="panelGit"><span class="sim">📖</span><b>Haftalık Plan</b><span>${sinifSecenek().map(x=>{const p=planGetir(x); if(!p) return `${esc(x)}: plan yüklenmedi`; const r=p.satirlar[buHafta(p)]; return `${esc(x)}: ${esc((satirDeger(p,r,"konu")||satirDeger(p,r,"tema")||r.h.find(Boolean)||"").split("\n")[0])}`;}).join("<br>")}</span></button>
     <button class="evrak panel-giris rehber-giris" id="rehberGit"><span class="sim">🧭</span><b>Rehberlik Planı</b><span>${(()=>{ const r=rehberVeri(); if(!r) return "plan yüklenmedi"; const w=r.satirlar[rehberBuHafta(r)]; return `${esc(w.hf)}. hafta: ${esc(w.kaz)}${r.uyg[w.hf]?" ✅":""}`; })()}</span></button>
     <div class="prog-izgara">${Object.entries(PROGRAM_TURLERI).map(([k,t])=>{ const p=prog(k); return `<button class="evrak" data-prog="${k}"><span class="sim">${t.sim}</span><b>${t.ad}</b><span>${p?esc(sonrakiDers(p)):"yüklenmedi"}</span></button>`; }).join("")}</div>
-    <div class="izgara">${EVRAK_SIRASI.map(id=>[id,EVRAKLAR[id]]).map(([id,e])=>`<button class="evrak" data-ev="${id}"><span class="sim">${e.sim}</span><b>${e.ad}</b><span>${e.acik}</span></button>`).join("")}</div>
+    <div class="izgara">${EVRAK_SIRASI.map(id=>[id,EVRAKLAR[id]]).map(([id,e])=>`<button class="evrak" data-ev="${id}"><span class="sim">${e.sim}</span><b>${e.ad}</b><span>${e.acik}</span></button>`+(id==="proje"?`<button class="evrak" id="projeOrnek"><span class="sim">💡</span><b>Proje Örnekleri</b><span>9 ve 10. sınıf matematik</span></button>`:"")).join("")}</div>
     <div class="butonlar"><button class="btn ikincil" id="ayar">⚙️ Bilgilerim</button><button class="btn ikincil" id="yedek">💾 Yedek ve eşitleme</button></div>
-    <p class="ipucu" style="text-align:center;margin-top:16px">Tüm bilgiler yalnızca bu telefonda saklanır.<br><small>Sürüm 21</small></p>`);
+    <p class="ipucu" style="text-align:center;margin-top:16px">Tüm bilgiler yalnızca bu telefonda saklanır.<br><small>Sürüm 22</small></p>`);
   document.querySelectorAll("[data-ev]").forEach(b=>b.onclick=()=>evrakForm(b.dataset.ev));
-  $("#panelGit").onclick=()=>panelEkrani(); $("#rehberGit").onclick=()=>rehberEkrani();
+  $("#panelGit").onclick=()=>panelEkrani(); $("#rehberGit").onclick=()=>rehberEkrani(); $("#projeOrnek").onclick=()=>projeOrnekEkrani();
   document.querySelectorAll("[data-prog]").forEach(b=>b.onclick=()=>programEkrani(b.dataset.prog));
   $("#ayar").onclick=()=>kurulum(false); $("#yedek").onclick=yedekEkrani;
 }

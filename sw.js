@@ -1,5 +1,5 @@
 // Evrak Defterim - çevrimdışı önbellek
-const SURUM = "evrak-v21";
+const SURUM = "evrak-v22";
 const DOSYALAR = ["./", "index.html", "manifest.webmanifest", "icon-192.png?v=2", "icon-512.png?v=2"];
 self.addEventListener("install", e => {
   e.waitUntil(caches.open(SURUM).then(c => c.addAll(DOSYALAR)).then(() => self.skipWaiting()));
