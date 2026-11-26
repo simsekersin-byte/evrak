@@ -1355,7 +1355,6 @@ async function hesapOzetiPdf(ad,donem){
   yaz(`Öğrenci: ${ad}`,M,y,{b:true,s:30}); y+=44;
   yaz(`Öğretmen: ${S.okul.ogretmen}${S.okul.brans?" ("+S.okul.brans+")":""}`,M,y,{s:26}); y+=40;
   yaz(`Dönem: ${bas?trTarih(bas):"Başlangıç"} – ${bit?trTarih(bit):trTarih(isoTarih(new Date()))}`,M,y,{s:26}); y+=40;
-  const ucret=o.ucret[ad]; if(ucret) { yaz(`Ders ücreti: ${tl(ucret)} / ders · her geliş 2 ders = ${tl(ucret*GELIS_DERS)}`,M,y,{s:26}); y+=40; }
   y+=20;
   const baslik=()=>{ g.fillStyle="#e8eef4"; g.fillRect(M,y-34,W-2*M,50); yaz("Tarih",M+16,y,{b:true}); yaz("Açıklama",M+260,y,{b:true}); yaz("Tutar",W-M-16,y,{b:true,r:true}); y+=56; };
   baslik();
@@ -1590,7 +1589,7 @@ function anaSayfa(){
     <div class="prog-izgara">${Object.entries(PROGRAM_TURLERI).map(([k,t])=>{ const p=prog(k); return `<button class="evrak" data-prog="${k}"><span class="sim">${t.sim}</span><b>${t.ad}</b><span>${p?esc(sonrakiDers(p)):"yüklenmedi"}</span></button>`; }).join("")}</div>
     <div class="izgara">${EVRAK_SIRASI.map(id=>[id,EVRAKLAR[id]]).map(([id,e])=>`<button class="evrak" data-ev="${id}"><span class="sim">${e.sim}</span><b>${e.ad}</b><span>${e.acik}</span></button>`+(id==="proje"?`<button class="evrak" id="projeOrnek"><span class="sim">💡</span><b>Proje Örnekleri</b><span>9 ve 10. sınıf matematik</span></button>`:"")).join("")}</div>
     <div class="butonlar"><button class="btn ikincil" id="ayar">⚙️ Bilgilerim</button><button class="btn ikincil" id="yedek">💾 Yedek ve eşitleme</button></div>
-    <p class="ipucu" style="text-align:center;margin-top:16px">Tüm bilgiler yalnızca bu telefonda saklanır.<br><small>Sürüm 22</small></p>`);
+    <p class="ipucu" style="text-align:center;margin-top:16px">Tüm bilgiler yalnızca bu telefonda saklanır.<br><small>Sürüm 23</small></p>`);
   document.querySelectorAll("[data-ev]").forEach(b=>b.onclick=()=>evrakForm(b.dataset.ev));
   $("#panelGit").onclick=()=>panelEkrani(); $("#rehberGit").onclick=()=>rehberEkrani(); $("#projeOrnek").onclick=()=>projeOrnekEkrani();
   document.querySelectorAll("[data-prog]").forEach(b=>b.onclick=()=>programEkrani(b.dataset.prog));
