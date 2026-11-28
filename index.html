@@ -207,7 +207,7 @@ function baglam(v={}){
   };
 }
 function doldur(metin,b){ return String(metin??"").replace(/\{([^{}]+)\}/g,(m,k)=>{ const n=normAnahtar(k); return (n in b && b[n]!=="" && b[n]!=null) ? b[n] : m; }); }
-const YER_TUTUCULAR=["OKUL","IL","ILCE","YIL","MUDUR","MUDUR_YRD","REHBER","OGRETMEN","BRANS","SUBE","MEVCUT","KIZ","ERKEK","TARIH","GUN","SAAT","YER","DONEM","TOPLANTI","BASKAN","VELI_SAYISI","ZUMRE"];
+const YER_TUTUCULAR=["OGRENCI","OKUL_NO","OKUL","IL","ILCE","YIL","MUDUR","MUDUR_YRD","REHBER","OGRETMEN","BRANS","SUBE","MEVCUT","KIZ","ERKEK","TARIH","GUN","SAAT","YER","DONEM","TOPLANTI","BASKAN","VELI_SAYISI","ZUMRE"];
 
 /* =========================================================
    BELGE MODELİ: bloklar → hem önizleme (HTML) hem Word (.docx)
@@ -1566,7 +1566,150 @@ EVRAKLAR.proje={
   }
 };
 
-const EVRAK_SIRASI=["gunluk","proje","sok","zumre","veli","rehberlik","oturma"];
+
+/* =========================================================
+   PDR (REHBERLİK SERVİSİ) YÖNLENDİRME FORMU
+   DİSİPLİN KURULUNA SEVK İÇİN OLAY TUTANAĞI
+   Öğrenci adları yalnızca telefondaki listeden gelir.
+   ========================================================= */
+function ogrBul(v){ return S.ogrenciler.find(o=>ogrAnahtar(o)===v.ogrenci)||null; }
+function ogrSecenek(){ return [{d:"",e:"— öğrenci seçin —"},...S.ogrenciler.map(o=>({d:ogrAnahtar(o),e:`${o.no?o.no+" - ":""}${o.ad}`}))]; }
+const PDR_NEDENLER=[
+  {g:"Akademik",m:["Ders başarısında belirgin düşüş","Dikkatini toplamakta güçlük, derse odaklanamama","Ders çalışma alışkanlığı ve motivasyon eksikliği","Öğrenme güçlüğü belirtileri (okuma, yazma, matematik)","Sınav kaygısı","Üstün yetenek belirtileri, bireysel destek ihtiyacı"]},
+  {g:"Devam",m:["Sık devamsızlık, okula gelmek istememe","Derslere geç kalma, okuldan erken ayrılma"]},
+  {g:"Davranış",m:["Ders düzenini sürekli bozma","Saldırgan davranış, kavga etme","Okul ve sınıf kurallarına uymama","Akran zorbalığı uygulama","Sigara, alkol veya madde kullanımı şüphesi"]},
+  {g:"Sosyal ve duygusal",m:["İçe kapanıklık, arkadaş ilişkilerinde güçlük","Akran zorbalığına maruz kalma","Sürekli üzgün, mutsuz veya ağlamaklı görünme","Ani duygu durum değişiklikleri, öfke kontrolünde güçlük","Kaygı ve korku belirtileri","Özgüven eksikliği","Kendine zarar verme belirtileri veya ifadeleri (ACİL)"]},
+  {g:"Aile ve çevre",m:["Aile içi sorunlar (boşanma, kayıp, taşınma vb.)","İhmal veya istismar şüphesi (ACİL)","Ekonomik güçlükler","Okula veya sınıfa uyum sorunu (yeni gelen öğrenci)"]},
+  {g:"Sağlık",m:["Süreğen hastalık veya sağlık sorunu","Yeme veya uyku düzeninde belirgin değişiklik","Aşırı telefon, internet veya oyun kullanımı"]},
+  {g:"Gelecek planı",m:["Alan, meslek veya üniversite seçiminde destek ihtiyacı"]}
+];
+const PDR_ONCEKI=[{g:"",m:["Öğrenci ile bireysel görüşme yapıldı","Veli ile görüşüldü","Ders öğretmenlerinden bilgi alındı","Sınıf içinde önlem alındı (oturma yeri, görev verme vb.)","ŞÖK'te görüşüldü","Daha önce bir çalışma yapılmadı"]}];
+function isaretAlani(alan,liste,baslik,ipucu=""){
+  return {id:alan,tur:"ozel",
+    ciz:v=>{ const s=new Set(v[alan]||[]); return `<label>${baslik}</label>${ipucu?`<div class="ipucu">${ipucu}</div>`:""}`+liste.map(gr=>`${gr.g?`<div style="font-weight:600;font-size:13px;color:var(--ana2);margin:10px 0 2px">${esc(gr.g)}</div>`:""}`+gr.m.map(m=>`<div style="display:flex;gap:10px;align-items:flex-start;padding:6px 0;border-bottom:1px solid var(--cizgi)"><input type="checkbox" data-isaret value="${esc(m)}" ${s.has(m)?"checked":""} style="width:22px;height:22px;flex:none;margin:0"><span style="font-size:15px" data-isaret-yazi>${esc(m)}</span></div>`).join("")).join(""); },
+    bagla:(el,v,yenile)=>{ if(!el) return;
+      el.querySelectorAll("[data-isaret-yazi]").forEach(sp=>sp.onclick=()=>sp.previousElementSibling.click());
+      el.querySelectorAll("[data-isaret]").forEach(c=>c.onchange=()=>{ const s=new Set(v[alan]||[]); c.checked?s.add(c.value):s.delete(c.value); v[alan]=[...s]; const y=window.scrollY; yenile(); window.scrollTo(0,y); }); }
+  };
+}
+function isaretliMaddeler(liste,secili,{hepsi}={}){
+  const s=new Set(secili||[]), out=[];
+  for(const gr of liste){ const m=hepsi?gr.m:gr.m.filter(x=>s.has(x)); if(!m.length) continue;
+    if(gr.g) out.push(B.p(gr.g+":",{bold:true,sonra:20}));
+    m.forEach(x=>out.push(B.p(`${s.has(x)?"☒":"☐"}  ${x}`,{sonra:20,girinti:true}))); }
+  return out;
+}
+EVRAKLAR.pdr={
+  ad:"PDR Yönlendirme", sim:"🤝", acik:"Rehberlik servisine öğrenci yönlendirme formu",
+  alanlar:[
+    {id:"ogrenci",ad:"Öğrenci",tur:"secim",secenek:ogrSecenek,v:()=>""},
+    {id:"ogrElle",ad:"Öğrenci listede yoksa adı soyadı",tur:"text",v:()=>""},
+    {id:"tarih",ad:"Yönlendirme tarihi",tur:"date",v:bugun},
+    {id:"oncelik",ad:"Öncelik",tur:"secim",secenek:["Normal","Öncelikli","Acil"],v:()=>"Normal"},
+    isaretAlani("nedenler",PDR_NEDENLER,"Yönlendirme nedenleri","Uygun olanları işaretleyin. Kendine zarar verme veya istismar şüphesinde formu beklemeden rehber öğretmene ve müdüre hemen haber verin."),
+    {id:"diger",ad:"Diğer neden (varsa)",tur:"text",v:()=>""},
+    {id:"gozlem",ad:"Gözlemler ve açıklama",ipucu:"Ne zamandan beri, hangi derslerde, nasıl bir davranış gözlendiğini kısaca yazın",tur:"metin",v:()=>`{OGRENCI} ile ilgili son haftalarda derslerde ve teneffüslerde yapılan gözlemler aşağıda belirtilmiştir.
+`},
+    isaretAlani("onceki",PDR_ONCEKI,"Daha önce yapılan çalışmalar"),
+    {id:"veli",ad:"Veli yönlendirmeden haberdar mı?",tur:"secim",secenek:["Evet","Hayır","Görüşülmedi"],v:()=>"Evet"},
+    {id:"bos",ad:"Rehberlik servisi bölümü (boş) eklensin mi?",tur:"secim",secenek:["Evet","Hayır"],v:()=>"Evet"},
+  ],
+  belge(v,b){
+    const o=ogrBul(v), ad=o?o.ad:(v.ogrElle||"................................");
+    const bb={...b,OGRENCI:ad};
+    const nedenler=isaretliMaddeler(PDR_NEDENLER,v.nedenler);
+    if(v.diger) nedenler.push(B.p(`☒  Diğer: ${v.diger}`,{sonra:20,girinti:true}));
+    const blok=[
+      ...ustBaslik(b,"Rehberlik ve psikolojik danışma servisine öğrenci yönlendirme formu"),
+      B.p("GİZLİDİR",{hiza:"right",bold:true}),
+      bilgiTablosu([["Öğrencinin Adı Soyadı",ad],["Okul Numarası",o?.no||"........"],["Sınıfı / Şubesi",b.SUBE],["Cinsiyeti",o?.cins==="K"?"Kız":o?.cins==="E"?"Erkek":"........"],["Yönlendiren",`${b.OGRETMEN} (Sınıf Rehber Öğretmeni)`],["Yönlendirme Tarihi",b.TARIH],["Öncelik",v.oncelik||"Normal"]]),
+      B.h("1. YÖNLENDİRME NEDENLERİ"), ...(nedenler.length?nedenler:[B.p("..............................................................................")]),
+      B.h("2. GÖZLEMLER VE AÇIKLAMA"), ...paragraflar(doldur(v.gozlem,bb)).map(t=>B.p(t,{girinti:true})),
+      B.h("3. DAHA ÖNCE YAPILAN ÇALIŞMALAR"), ...isaretliMaddeler(PDR_ONCEKI,v.onceki,{hepsi:true}),
+      B.p(`Veli yönlendirmeden haberdar: ${v.veli||"...."}`,{bold:true}),
+      B.bosluk(),
+      B.imza([{ad:b.OGRETMEN,unvan:`${b.SUBE} Sınıf Rehber Öğretmeni`,alt:b.TARIH},{ust:"TESLİM ALAN",ad:b.REHBER||"................",unvan:"Rehber Öğretmen / Psikolojik Danışman",alt:"..../..../20...."}],2)
+    ];
+    if(v.bos!=="Hayır") blok.push(B.h("4. REHBERLİK SERVİSİNCE DOLDURULACAKTIR"),
+      B.tablo([[{text:"Görüşme tarih(ler)i",bold:true},"\n"],[{text:"Yapılan çalışmalar",bold:true},"\n\n\n"],[{text:"Sonuç ve öneriler",bold:true},"\n\n\n"],[{text:"Sınıf rehber öğretmenine geri bildirim",bold:true},"\n\n"]],{genislik:[32,68]}),
+      B.p("Bu formdaki bilgiler gizlidir; yalnızca öğrencinin yararı için rehberlik servisi tarafından kullanılır.",{size:18}));
+    return blok;
+  }
+};
+
+/* ---------- disiplin: olay tutanağı ---------- */
+const OLAYLAR={
+  "Tuvalette sigara içmek":{yer:"Okul tuvaleti",
+    anlatim:`{TARIH} tarihinde saat {SAAT} sıralarında okul tuvaletleri kontrol edilirken {SUBE} sınıfından {OKUL_NO} numaralı {OGRENCI} isimli öğrencinin sigara içtiği görülmüştür. Öğrencinin elinde yanan sigara bulunduğu ve ortamda yoğun sigara kokusu olduğu tespit edilmiştir. Öğrenci uyarılarak sigarası söndürtülmüş ve durum okul idaresine bildirilmiştir.`,
+    mevzuat:"Ortaöğretim Kurumları Yönetmeliği Madde 164 (1): tütün ve tütün ürünleri bulundurmak veya kullanmak (kınama cezasını gerektiren davranışlar)."},
+  "Kavga etmek":{yer:"Okul bahçesi",
+    anlatim:`{TARIH} tarihinde saat {SAAT} sıralarında teneffüs sırasında okul bahçesinde {SUBE} sınıfından {OKUL_NO} numaralı {OGRENCI} isimli öğrencinin ................................ isimli öğrenci ile tartışmaya girdiği, tartışmanın büyüyerek karşılıklı itişme ve vurmaya dönüştüğü görülmüştür. Nöbetçi öğretmen ve tanıkların müdahalesiyle öğrenciler ayrılmıştır. Olay sonrasında öğrencilerin yaralanma durumu kontrol edilmiş ve okul idaresine bildirilmiştir.`,
+    mevzuat:"Ortaöğretim Kurumları Yönetmeliği Madde 164 (2): kavga etmek, başkalarına fiili saldırıda bulunmak (okuldan kısa süreli uzaklaştırma cezasını gerektiren davranışlar)."},
+  "Sınavda kopya çekmek":{yer:"{SUBE} sınıfı",
+    anlatim:`{TARIH} tarihinde saat {SAAT} sıralarında sınıfta yapılan ................ dersi yazılı sınavında {SUBE} sınıfından {OKUL_NO} numaralı {OGRENCI} isimli öğrencinin kopya çektiği tespit edilmiştir. Öğrencinin üzerinde/sırasında sınav konularına ait not kâğıdı bulunmuş, kâğıt tutanağa eklenmek üzere alınmıştır. Öğrencinin sınav kâğıdı alınarak durum okul idaresine bildirilmiştir.`,
+    mevzuat:"Ortaöğretim Kurumları Yönetmeliği Madde 164 (1): sınavlarda kopya çekmek veya çekilmesine yardımcı olmak (kınama cezasını gerektiren davranışlar)."},
+  "Ders sırasında cep telefonu kullanmak":{yer:"{SUBE} sınıfı",
+    anlatim:`{TARIH} tarihinde saat {SAAT} sıralarında sınıftaki ................ dersi sırasında {SUBE} sınıfından {OKUL_NO} numaralı {OGRENCI} isimli öğrencinin yapılan uyarılara rağmen cep telefonunu açık tutup kullandığı görülmüştür. Telefon okul idaresine teslim edilmiş ve durum tutanak altına alınmıştır.`,
+    mevzuat:"Ortaöğretim Kurumları Yönetmeliği Madde 164 (1): ders ve etkinlikler sırasında cep telefonu ve benzeri cihazları izinsiz açık tutmak veya kullanmak (kınama cezasını gerektiren davranışlar)."},
+  "Dersin düzenini bozmak":{yer:"{SUBE} sınıfı",
+    anlatim:`{TARIH} tarihinde saat {SAAT} sıralarında sınıftaki ................ dersi sırasında {SUBE} sınıfından {OKUL_NO} numaralı {OGRENCI} isimli öğrencinin yapılan sözlü uyarılara rağmen yüksek sesle konuşarak, yerinden kalkarak ve arkadaşlarını rahatsız ederek dersin akışını engellediği görülmüştür.`,
+    mevzuat:"Ortaöğretim Kurumları Yönetmeliği Madde 164 (1): dersin ve etkinliklerin akışını bozmak (kınama cezasını gerektiren davranışlar)."},
+  "Öğretmene saygısızlık, hakaret":{yer:"{SUBE} sınıfı",
+    anlatim:`{TARIH} tarihinde saat {SAAT} sıralarında sınıfta {SUBE} sınıfından {OKUL_NO} numaralı {OGRENCI} isimli öğrenci, kendisine yapılan uyarı üzerine öğretmenine yüksek sesle ve saygısız bir dille karşılık vermiş, "................................" şeklinde sözler sarf etmiştir. Olay sınıftaki öğrencilerin önünde gerçekleşmiştir.`,
+    mevzuat:"Ortaöğretim Kurumları Yönetmeliği Madde 164: saygısız davranış (1, kınama); hakaret veya tehdit (2, okuldan kısa süreli uzaklaştırma). Davranışın ağırlığını kurul değerlendirir."},
+  "Akran zorbalığı":{yer:"Okul koridoru",
+    anlatim:`{TARIH} tarihinde saat {SAAT} sıralarında okul koridorunda {SUBE} sınıfından {OKUL_NO} numaralı {OGRENCI} isimli öğrencinin ................................ isimli öğrenciyle alay ettiği, lakap taktığı ve onu arkadaş grubundan dışladığı görülmüştür. Mağdur öğrencinin anlatımına göre bu davranışlar bir süredir devam etmektedir. Öğrenci daha önce sözlü olarak uyarılmıştır.`,
+    mevzuat:"Ortaöğretim Kurumları Yönetmeliği Madde 164 (2): zorbalığı alışkanlık hâline getirmek, başkalarını tehdit etmek veya aşağılamak (okuldan kısa süreli uzaklaştırma cezasını gerektiren davranışlar)."},
+  "Okuldan izinsiz ayrılmak":{yer:"Okul",
+    anlatim:`{TARIH} tarihinde {SAAT} saatinde başlayan derste {SUBE} sınıfından {OKUL_NO} numaralı {OGRENCI} isimli öğrencinin yoklamada bulunmadığı, okul idaresinden izin almadan okuldan ayrıldığı tespit edilmiştir. Öğrencinin velisi telefonla aranarak bilgilendirilmiştir.`,
+    mevzuat:"Ortaöğretim Kurumları Yönetmeliği Madde 164 (1): özürsüz olarak okula geç gelmek veya okuldan izinsiz ayrılmak (kınama cezasını gerektiren davranışlar)."},
+  "Okul eşyasına zarar vermek":{yer:"{SUBE} sınıfı",
+    anlatim:`{TARIH} tarihinde saat {SAAT} sıralarında sınıfta {SUBE} sınıfından {OKUL_NO} numaralı {OGRENCI} isimli öğrencinin ................................ (sıra, kapı, pano vb.) eşyasına bilerek zarar verdiği görülmüştür. Verilen zarar yerinde tespit edilmiş ve okul idaresine bildirilmiştir.`,
+    mevzuat:"Ortaöğretim Kurumları Yönetmeliği Madde 164: verilen zararın niteliğine göre kınamadan daha ağır cezalara kadar. Davranışın ağırlığını kurul değerlendirir."},
+  "Diğer (kendim yazacağım)":{yer:"",anlatim:`{TARIH} tarihinde saat {SAAT} sıralarında ................ (olay yeri) {SUBE} sınıfından {OKUL_NO} numaralı {OGRENCI} isimli öğrencinin ................................ `,mevzuat:"Ortaöğretim Kurumları Yönetmeliği Madde 164."}
+};
+EVRAKLAR.disiplin={
+  ad:"Disiplin Tutanağı", sim:"⚖️", acik:"Disiplin kuruluna sevk için olay tutanağı",
+  alanlar:[
+    {id:"olay",ad:"Olay",tur:"secim",secenek:Object.keys(OLAYLAR),v:()=>Object.keys(OLAYLAR)[0],yenidenCiz:true,sifirla:["yer","anlatim","mevzuat"],ipucu:"Olayı değiştirince yer, anlatım ve mevzuat metni kendiliğinden yenilenir."},
+    {id:"ogrenci",ad:"Öğrenci",tur:"secim",secenek:ogrSecenek,v:()=>""},
+    {id:"ogrElle",ad:"Öğrenci listede yoksa adı soyadı",tur:"text",v:()=>""},
+    {id:"tarih",ad:"Olay tarihi",tur:"date",v:bugun},
+    {id:"saat",ad:"Olay saati",tur:"time",v:()=>"10:30"},
+    {id:"yer",ad:"Olay yeri",tur:"text",v:x=>OLAYLAR[x.olay]?.yer??""},
+    {id:"anlatim",ad:"Olayın anlatımı",ipucu:"Noktalı yerleri doldurun. Yorum değil, görülen ve duyulanı yazın.",tur:"metin",uzun:true,v:x=>OLAYLAR[x.olay]?.anlatim||""},
+    {id:"beyan",ad:"Öğrencinin olay hakkındaki sözlü açıklaması (varsa)",tur:"metin",v:()=>""},
+    {id:"tanik",ad:"Tanıklar",ipucu:"Her satır: Adı Soyadı - Görevi (ör. Nöbetçi Öğretmen)",tur:"metin",v:()=>""},
+    {id:"mevzuat",ad:"İlgili mevzuat",ipucu:"Hangi cezanın verileceğine Öğrenci Ödül ve Disiplin Kurulu karar verir.",tur:"metin",v:x=>OLAYLAR[x.olay]?.mevzuat||""},
+    {id:"sevk",ad:"Müdürlüğe sevk yazısı eklensin mi?",tur:"secim",secenek:["Evet","Hayır"],v:()=>"Evet"},
+  ],
+  belge(v,b){
+    const o=ogrBul(v), ad=o?o.ad:(v.ogrElle||"................................"), no=o?.no||"........";
+    const bb={...b,OGRENCI:ad,OKUL_NO:no,YER:doldur(v.yer||"",b)}, olayAd=String(v.olay||"").replace(/\s*\(kendim yazacağım\)$/,"");
+    const taniklar=satirlar(v.tanik).map(l=>{const p=l.split(/\s+-\s+|\s*\|\s*/); return {ad:p[0],unvan:p[1]||"Tanık"};});
+    const blok=[
+      ...ustBaslik(b,"Olay tespit tutanağı"), B.bosluk(),
+      bilgiTablosu([["Öğrencinin Adı Soyadı",ad],["Okul Numarası",no],["Sınıfı / Şubesi",b.SUBE],["Olayın Tarihi ve Saati",`${b.TARIH} ${b.GUN}, ${b.SAAT}`],["Olayın Yeri",bb.YER||"................"],["Olay",olayAd]]),
+      B.h("OLAYIN ANLATIMI"), ...paragraflar(doldur(v.anlatim,bb)).map(t=>B.p(t,{girinti:true})),
+      ...(satirlar(v.beyan).length?[B.h("ÖĞRENCİNİN AÇIKLAMASI"),...paragraflar(doldur(v.beyan,bb)).map(t=>B.p(t,{girinti:true}))]:[]),
+      B.h("İLGİLİ MEVZUAT"), ...paragraflar(doldur(v.mevzuat,bb)).map(t=>B.p(t,{girinti:true})),
+      B.p("İşbu tutanak olay üzerine tarafımızca düzenlenmiş, okunarak birlikte imza altına alınmıştır.",{girinti:true}),
+      B.bosluk(),
+      B.imza([{ad:b.OGRETMEN,unvan:"Tutanağı Düzenleyen Öğretmen"},...(taniklar.length?taniklar:[{ad:"................",unvan:"Tanık"},{ad:"................",unvan:"Tanık"}])],3),
+      B.imza([{ad:ad,unvan:"Öğrenci (okudum)"}],1)
+    ];
+    if(v.sevk!=="Hayır") blok.push(B.sayfa(),
+      ...B.baslik(BUYUK(b.OKUL||"............ OKULU")+" MÜDÜRLÜĞÜNE"), B.p(b.ILCE?BUYUK(b.ILCE):"",{hiza:"right"}), B.bosluk(),
+      B.p(`Okulumuz ${b.SUBE} sınıfı ${no} numaralı öğrencisi ${ad}, ${b.TARIH} tarihinde saat ${b.SAAT} sıralarında meydana gelen "${olayAd}" olayına karışmıştır${bb.YER?` (olay yeri: ${bb.YER})`:""}. Olaya ilişkin tutanak ekte sunulmuştur.`,{girinti:true}),
+      B.p("Söz konusu davranışın Ortaöğretim Kurumları Yönetmeliği'nin ilgili hükümleri kapsamında değerlendirilmesi amacıyla öğrencinin Öğrenci Ödül ve Disiplin Kuruluna sevkini arz ederim.",{girinti:true}),
+      B.p(trTarih(bugun()),{hiza:"right"}),
+      B.imza([{ad:b.OGRETMEN,unvan:`${b.SUBE} Sınıf Rehber Öğretmeni`}],1),
+      B.p("Ek: Olay tespit tutanağı (1 sayfa)",{size:20}));
+    return blok;
+  }
+};
+
+const EVRAK_SIRASI=["gunluk","proje","sok","zumre","veli","rehberlik","pdr","disiplin","oturma"];
 
 /* =========================================================
    EKRANLAR
@@ -1589,7 +1732,7 @@ function anaSayfa(){
     <div class="prog-izgara">${Object.entries(PROGRAM_TURLERI).map(([k,t])=>{ const p=prog(k); return `<button class="evrak" data-prog="${k}"><span class="sim">${t.sim}</span><b>${t.ad}</b><span>${p?esc(sonrakiDers(p)):"yüklenmedi"}</span></button>`; }).join("")}</div>
     <div class="izgara">${EVRAK_SIRASI.map(id=>[id,EVRAKLAR[id]]).map(([id,e])=>`<button class="evrak" data-ev="${id}"><span class="sim">${e.sim}</span><b>${e.ad}</b><span>${e.acik}</span></button>`+(id==="proje"?`<button class="evrak" id="projeOrnek"><span class="sim">💡</span><b>Proje Örnekleri</b><span>9 ve 10. sınıf matematik</span></button>`:"")).join("")}</div>
     <div class="butonlar"><button class="btn ikincil" id="ayar">⚙️ Bilgilerim</button><button class="btn ikincil" id="yedek">💾 Yedek ve eşitleme</button></div>
-    <p class="ipucu" style="text-align:center;margin-top:16px">Tüm bilgiler yalnızca bu telefonda saklanır.<br><small>Sürüm 23</small></p>`);
+    <p class="ipucu" style="text-align:center;margin-top:16px">Tüm bilgiler yalnızca bu telefonda saklanır.<br><small>Sürüm 24</small></p>`);
   document.querySelectorAll("[data-ev]").forEach(b=>b.onclick=()=>evrakForm(b.dataset.ev));
   $("#panelGit").onclick=()=>panelEkrani(); $("#rehberGit").onclick=()=>rehberEkrani(); $("#projeOrnek").onclick=()=>projeOrnekEkrani();
   document.querySelectorAll("[data-prog]").forEach(b=>b.onclick=()=>programEkrani(b.dataset.prog));
